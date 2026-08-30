@@ -1,0 +1,26 @@
+{
+  "name": "speedplus-pos",
+  "version": "1.0.0",
+  "description": "SPEED PLUS 9.0 GST ERP Desktop Billing",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.speedplus.erp",
+    "productName": "SPEED PLUS 9.0 ERP",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}
