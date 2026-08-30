@@ -1,0 +1,1607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SPEED PLUS 9.0 — GST Billing, Sales Dashboard & Inventory Alert</title>
+  
+  <!-- Supabase, QRCode, JsBarcode & Razorpay Checkout -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <style>
+    :root {
+      --primary: #0b3c5d;
+      --secondary: #328cc1;
+      --accent: #d9b310;
+      --bg: #f0f2f5;
+      --border: #dcdfe6;
+      --text: #2c3e50;
+      --danger: #e74c3c;
+      --warning: #f39c12;
+      --success: #27ae60;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+    body { display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: var(--text); overflow: hidden; }
+
+    /* ================= GLASSMORPHISM LOGIN OVERLAY ================= */
+    #auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at 10% 20%, rgb(11, 60, 93) 0%, rgb(4, 21, 33) 90%);
+      overflow: hidden;
+    }
+
+    .ambient-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.6;
+      animation: floatOrb 8s infinite alternate ease-in-out;
+    }
+    .orb-1 { width: 340px; height: 340px; background: #328cc1; top: 10%; left: 18%; }
+    .orb-2 { width: 280px; height: 280px; background: #d9b310; bottom: 12%; right: 20%; animation-delay: -3s; }
+    .orb-3 { width: 220px; height: 220px; background: #27ae60; bottom: 35%; left: 30%; animation-delay: -5s; }
+
+    @keyframes floatOrb {
+      0% { transform: translateY(0px) scale(1); }
+      100% { transform: translateY(-30px) scale(1.08); }
+    }
+
+    .glass-card {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      padding: 36px 32px;
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+      color: #ffffff;
+      text-align: center;
+    }
+
+    .glass-card h2 { font-size: 24px; margin-bottom: 6px; letter-spacing: 0.5px; }
+    .glass-card p { font-size: 13px; color: rgba(255,255,255,0.75); margin-bottom: 20px; }
+
+    .glass-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .glass-input-group label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: rgba(255,255,255,0.85);
+    }
+
+    .glass-input {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .glass-input::placeholder { color: rgba(255, 255, 255, 0.45); }
+    .glass-input:focus {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: var(--secondary);
+      box-shadow: 0 0 10px rgba(50, 140, 193, 0.5);
+    }
+
+    .glass-btn {
+      width: 100%;
+      padding: 12px;
+      margin-top: 18px;
+      background: linear-gradient(135deg, #328cc1, #0b3c5d);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+    }
+
+    .glass-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(50, 140, 193, 0.4);
+    }
+
+    .auth-links {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .auth-toggle-link {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .auth-toggle-link:hover { color: var(--accent); }
+
+    #email-unverified-ribbon {
+      display: none;
+      background: #e67e22;
+      color: white;
+      padding: 6px 16px;
+      font-size: 12px;
+      text-align: center;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+    #email-unverified-ribbon button {
+      background: #ffffff;
+      color: #d35400;
+      border: none;
+      padding: 2px 8px;
+      font-size: 11px;
+      border-radius: 3px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #reset-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0,0,0,0.7);
+    }
+
+    #paywall-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background: rgba(4, 21, 33, 0.94);
+      backdrop-filter: blur(14px);
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* ================= MAIN APP STYLES ================= */
+    nav {
+      background: var(--primary);
+      padding: 8px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: white;
+    }
+
+    .nav-tabs { display: flex; gap: 8px; }
+    .nav-tab-btn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      padding: 7px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .nav-tab-btn.active { background: var(--secondary); border-color: var(--secondary); }
+
+    .view-panel { display: none; flex: 1; height: calc(100vh - 53px); }
+    .view-panel.active { display: flex; }
+
+    #pos-controls {
+      flex: 1.6;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+    }
+
+    .search-container {
+      display: grid;
+      grid-template-columns: 2fr 2fr 1fr;
+      gap: 10px;
+      background: white;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .input-box, select {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 14px;
+      width: 100%;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th, td {
+      border: 1px solid #ebedf0;
+      padding: 7px 10px;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    th { background: #243342; color: white; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: white;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .btn-action {
+      background: var(--success);
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #preview-panel {
+      flex: 1;
+      background: #78909c;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      overflow-y: auto;
+    }
+
+    #bill-receipt {
+      width: 300px;
+      background: white;
+      padding: 14px;
+      font-size: 11px;
+      height: fit-content;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+
+    #dashboard-view, #inventory-view, #settings-view {
+      padding: 16px;
+      gap: 16px;
+      width: 100%;
+      overflow-y: auto;
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .kpi-card {
+      background: white;
+      padding: 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+    .kpi-card h4 { font-size: 12px; color: #666; margin-bottom: 6px; text-transform: uppercase; }
+    .kpi-card .kpi-num { font-size: 22px; font-weight: bold; color: var(--primary); }
+
+    .form-card {
+      background: white;
+      padding: 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .list-card {
+      flex: 2;
+      background: white;
+      padding: 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .barcode-sticker {
+      border: 1px dashed #333;
+      padding: 10px;
+      width: 230px;
+      text-align: center;
+      margin: 8px auto;
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .badge-edit { background: var(--warning); color: white; padding: 3px 8px; border-radius: 3px; border: none; cursor: pointer; font-size: 11px; }
+    .badge-delete { background: var(--danger); color: white; padding: 3px 8px; border-radius: 3px; border: none; cursor: pointer; font-size: 11px; margin-left: 4px; }
+    
+    .stock-badge {
+      padding: 3px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .stock-ok { background: #e8f8f5; color: #27ae60; }
+    .stock-low { background: #fef9e7; color: #d35400; }
+    .stock-out { background: #fdedec; color: #c0392b; }
+
+    @media print {
+      body * { visibility: hidden; }
+      #bill-receipt, #bill-receipt * { visibility: visible; }
+      #printable-sticker, #printable-sticker * { visibility: visible; }
+      #bill-receipt, #printable-sticker {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== GLASSMORPHISM LOGIN OVERLAY ==================== -->
+  <div id="auth-overlay">
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+
+    <div class="glass-card">
+      <h2 id="auth-title">⚡ SPEED PLUS ERP</h2>
+      <p id="auth-subtitle">Merchant Cloud Portal Access</p>
+
+      <div class="glass-input-group">
+        <div>
+          <label>Email Address</label>
+          <input type="email" id="auth-email" class="glass-input" placeholder="merchant@store.com" required>
+        </div>
+
+        <div id="auth-password-group">
+          <label>Password</label>
+          <input type="password" id="auth-password" class="glass-input" placeholder="••••••••" required>
+        </div>
+      </div>
+
+      <button class="glass-btn" id="btn-auth-submit" onclick="handleAuthSubmit()">Sign In</button>
+
+      <div class="auth-links">
+        <span class="auth-toggle-link" id="auth-forgot-link" onclick="setAuthMode('forgot')">Forgot Password?</span>
+        <span class="auth-toggle-link" id="auth-toggle-text" onclick="toggleRegisterSignIn()">Don't have an account? Register Merchant</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== UPDATE NEW PASSWORD MODAL ==================== -->
+  <div id="reset-modal">
+    <div class="glass-card">
+      <h2>🔒 Create New Password</h2>
+      <p>Enter your updated secure merchant password below</p>
+      
+      <div class="glass-input-group">
+        <div>
+          <label>New Password</label>
+          <input type="password" id="new-reset-password" class="glass-input" placeholder="Min 6 characters">
+        </div>
+      </div>
+
+      <button class="glass-btn" onclick="submitPasswordUpdate()">Update & Open Terminal</button>
+    </div>
+  </div>
+
+  <!-- ==================== SUBSCRIPTION EXPIRED PAYWALL MODAL ==================== -->
+  <div id="paywall-overlay">
+    <div class="glass-card" style="max-width: 480px;">
+      <div style="font-size: 40px; margin-bottom: 6px;">🔒</div>
+      <h2>Subscription Expired</h2>
+      <p>Your license period has ended. Upgrade to continue billing and managing inventory.</p>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom: 20px; text-align:left;">
+        <div style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:10px; padding:14px;">
+          <h4 style="font-size:13px; color:var(--secondary);">Monthly Pro</h4>
+          <div style="font-size:20px; font-weight:bold; margin:6px 0;">₹499<span style="font-size:11px; font-weight:normal;">/mo</span></div>
+          <ul style="font-size:11px; color:#ddd; padding-left:14px; margin-bottom:12px;">
+            <li>Unlimited Bills</li>
+            <li>Cloud Stock Sync</li>
+          </ul>
+          <button class="glass-btn" style="margin-top:0; padding:8px; font-size:12px;" onclick="initiateRazorpayPayment('plan_MONTHLY_ID', 499)">Upgrade</button>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.08); border:1px solid var(--accent); border-radius:10px; padding:14px; position:relative;">
+          <span style="position:absolute; top:-9px; right:8px; background:var(--accent); color:#000; font-size:9px; font-weight:bold; padding:2px 6px; border-radius:4px;">SAVE 20%</span>
+          <h4 style="font-size:13px; color:var(--accent);">Annual Pro</h4>
+          <div style="font-size:20px; font-weight:bold; margin:6px 0;">₹4,799<span style="font-size:11px; font-weight:normal;">/yr</span></div>
+          <ul style="font-size:11px; color:#ddd; padding-left:14px; margin-bottom:12px;">
+            <li>Priority Support</li>
+            <li>All Pro Features</li>
+          </ul>
+          <button class="glass-btn" style="margin-top:0; padding:8px; font-size:12px; background:linear-gradient(135deg, #d9b310, #b28f00);" onclick="initiateRazorpayPayment('plan_ANNUAL_ID', 4799)">Upgrade</button>
+        </div>
+      </div>
+
+      <button class="nav-tab-btn" style="background:transparent; border:none; color:rgba(255,255,255,0.6); font-size:12px; cursor:pointer;" onclick="handleLogout()">Log out & switch account</button>
+    </div>
+  </div>
+
+  <!-- Email Verification Alert Banner -->
+  <div id="email-unverified-ribbon">
+    <span>⚠️ Your email is not verified yet. Please check your inbox or click here to resend the confirmation link.</span>
+    <button onclick="resendVerificationEmail()">Resend Email</button>
+  </div>
+
+  <!-- Navigation Bar -->
+  <nav>
+    <div style="display: flex; align-items: center; gap: 15px;">
+      <h3>⚡ SPEED PLUS 9.0</h3>
+      <span id="merchant-user-display" style="font-size: 12px; color: var(--accent); font-weight: bold;"></span>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab-btn active" onclick="switchTab('pos')">🛒 Fast POS</button>
+      <button class="nav-tab-btn" onclick="switchTab('dashboard')">📊 Sales & Reports</button>
+      <button class="nav-tab-btn" onclick="switchTab('inventory')">📦 Products & Stock</button>
+      <button class="nav-tab-btn" onclick="switchTab('settings')">⚙️ UPI & Store Setup</button>
+      <button class="nav-tab-btn" style="background: rgba(231,76,60,0.8); border-color: transparent;" onclick="handleLogout()">🚪 Logout</button>
+    </div>
+  </nav>
+
+  <!-- TAB 1: POS BILLING -->
+  <div id="pos-view" class="view-panel active">
+    <div id="pos-controls">
+      <div class="search-container">
+        <div>
+          <label style="font-size: 11px; font-weight: bold;">Scan Barcode / SKU [Enter]:</label>
+          <input type="text" id="pos-barcode-input" class="input-box" placeholder="Scan or type code..." autofocus>
+        </div>
+        <div>
+          <label style="font-size: 11px; font-weight: bold;">Or Select Product:</label>
+          <select id="pos-product-dropdown" class="input-box" onchange="handleDropdownSelection(this.value)">
+            <option value="">-- Choose Product --</option>
+          </select>
+        </div>
+        <div style="display: flex; align-items: flex-end;">
+          <button class="btn-action" style="padding: 8px; width: 100%; font-size: 13px; background: var(--secondary);" onclick="handleManualSearch()">Add Item</button>
+        </div>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; background: white; border: 1px solid var(--border); border-radius: 4px;">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Item Name</th>
+              <th>MRP (₹)</th>
+              <th>Rate (₹)</th>
+              <th>GST%</th>
+              <th>Qty</th>
+              <th>Total (₹)</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="pos-cart-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="summary-grid">
+        <div>Taxable: <strong>₹<span id="txt-taxable">0.00</span></strong></div>
+        <div>CGST: <strong>₹<span id="txt-cgst">0.00</span></strong></div>
+        <div>SGST: <strong>₹<span id="txt-sgst">0.00</span></strong></div>
+        <div>Grand Total: <strong style="color: green; font-size: 16px;">₹<span id="txt-grand">0.00</span></strong></div>
+      </div>
+
+      <button class="btn-action" onclick="saveAndPrintReceipt()">🖨️ Print & Complete Invoice</button>
+    </div>
+
+    <div id="preview-panel">
+      <div id="bill-receipt">
+        <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 6px;">
+          <h4 id="bill-store-name">SPEED PLUS 9.0</h4>
+          <p>GST BILLING & ACCOUNTING ERP</p>
+          <p>TAX INVOICE</p>
+          <p style="font-size: 10px;">GSTIN: <span id="bill-gstin">07AAAAA0000A1Z5</span></p>
+          <p id="bill-invoice-no" style="font-weight: bold; margin-top: 4px;"></p>
+        </div>
+
+        <table style="width: 100%; margin-top: 8px; font-size: 10px;">
+          <thead>
+            <tr style="border-bottom: 1px solid #000;">
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Rate</th>
+              <th style="text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody id="bill-receipt-items"></tbody>
+        </table>
+
+        <div style="border-top: 1px dashed #000; margin-top: 8px; padding-top: 6px; font-size: 10px;">
+          <div style="display:flex; justify-content: space-between;"><span>Taxable Subtotal:</span><span>₹<span id="bill-taxable">0.00</span></span></div>
+          <div style="display:flex; justify-content: space-between;"><span>Total Tax (GST):</span><span>₹<span id="bill-tax">0.00</span></span></div>
+          <div style="display:flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin-top: 4px;">
+            <span>GRAND TOTAL:</span><span>₹<span id="bill-grand">0.00</span></span>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 10px;">
+          <canvas id="bill-upi-qr"></canvas>
+          <p style="font-size: 9px; font-weight: bold; margin-top: 2px;">SCAN & PAY VIA UPI</p>
+          <p style="font-size: 9px; color: #444;" id="bill-upi-display">UPI ID: merchant@upi</p>
+          <svg id="bill-barcode" style="margin-top: 6px;"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: SALES DASHBOARD & REPORTS -->
+  <div id="dashboard-view" class="view-panel">
+    <div style="width: 100%; display: flex; flex-direction: column; gap: 16px;">
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <h4>Total Revenue Generated</h4>
+          <div class="kpi-num" style="color: var(--success);">₹<span id="kpi-total-sales">0.00</span></div>
+        </div>
+        <div class="kpi-card">
+          <h4>Total Invoices Issued</h4>
+          <div class="kpi-num" id="kpi-total-bills">0</div>
+        </div>
+        <div class="kpi-card">
+          <h4>Total GST Collected</h4>
+          <div class="kpi-num" style="color: var(--secondary);">₹<span id="kpi-total-gst">0.00</span></div>
+        </div>
+        <div class="kpi-card">
+          <h4>Low / Out of Stock Items</h4>
+          <div class="kpi-num" style="color: var(--danger);" id="kpi-low-stock-count">0</div>
+        </div>
+      </div>
+
+      <div class="list-card" style="flex: 1;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3>Complete Sales History & Ledger</h3>
+          <button class="nav-tab-btn" style="background: var(--secondary); color: white;" onclick="clearSalesData()">🗑️ Reset Ledger</button>
+        </div>
+        
+        <div style="flex: 1; overflow-y: auto; border: 1px solid var(--border);">
+          <table>
+            <thead>
+              <tr>
+                <th>Invoice Number</th>
+                <th>Date & Time</th>
+                <th>Item Details</th>
+                <th>Taxable (₹)</th>
+                <th>Total GST (₹)</th>
+                <th>Grand Total (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="sales-history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: INVENTORY & LOW STOCK MANAGER -->
+  <div id="inventory-view" class="view-panel">
+    <div class="form-card" style="flex: 1; max-width: 420px;">
+      <h3 id="form-heading" style="color: var(--primary);">Add / Edit Item</h3>
+      <input type="hidden" id="edit-original-barcode">
+
+      <div>
+        <label style="font-size: 12px;">Item Name:</label>
+        <input type="text" id="inv-name" class="input-box" placeholder="e.g. Basmati Rice 5kg">
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <div style="flex:1;">
+          <label style="font-size: 12px;">SKU / Barcode:</label>
+          <input type="text" id="inv-code" class="input-box" placeholder="e.g. 8901234567890">
+        </div>
+        <div style="align-self: flex-end;">
+          <button class="nav-tab-btn" style="background: #34495e; padding: 7px 10px;" onclick="generateRandomSKU()">Auto</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <div style="flex:1;">
+          <label style="font-size: 12px;">MRP (₹):</label>
+          <input type="number" id="inv-mrp" class="input-box" placeholder="0.00">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size: 12px;">Selling Rate (₹):</label>
+          <input type="number" id="inv-rate" class="input-box" placeholder="0.00">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size: 12px;">GST Slab (%):</label>
+          <select id="inv-gst" class="input-box">
+            <option value="0">0%</option>
+            <option value="5" selected>5%</option>
+            <option value="12">12%</option>
+            <option value="18">18%</option>
+            <option value="28">28%</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; background: #fafafa; padding: 8px; border-radius: 4px; border: 1px dashed var(--border);">
+        <div style="flex:1;">
+          <label style="font-size: 12px; font-weight: bold;">Current Stock Qty:</label>
+          <input type="number" id="inv-stock" class="input-box" placeholder="50" value="50">
+        </div>
+        <div style="flex:1;">
+          <label style="font-size: 12px; font-weight: bold; color: var(--danger);">Low Stock Alert Qty:</label>
+          <input type="number" id="inv-min-stock" class="input-box" placeholder="10" value="10">
+        </div>
+      </div>
+
+      <div style="display:flex; gap: 8px; margin-top: 6px;">
+        <button class="btn-action" id="btn-save-item" style="flex: 1; background: var(--secondary);" onclick="saveProductAndPreview()">💾 Save Item</button>
+        <button class="btn-action" id="btn-cancel-edit" style="background: #7f8c8d; display: none;" onclick="resetForm()">Cancel</button>
+      </div>
+
+      <div id="printable-sticker" class="barcode-sticker">
+        <h4 id="lbl-name" style="font-size: 11px; text-transform: uppercase;">PREVIEW</h4>
+        <p style="font-size: 10px;"><strong>MRP: ₹<span id="lbl-mrp">0.00</span></strong></p>
+        <p style="font-size: 9px; color:#555;">Code: <span id="lbl-code">000000000000</span></p>
+        <svg id="lbl-barcode-svg" style="margin-top: 2px;"></svg>
+        <div style="margin-top: 4px;"><canvas id="lbl-qr-canvas"></canvas></div>
+      </div>
+      <button class="btn-action" style="background: #34495e; font-size: 12px; padding: 6px;" onclick="window.print()">🖨️ Print Label Sticker</button>
+    </div>
+
+    <div class="list-card">
+      <div style="display:flex; justify-content: space-between; align-items:center;">
+        <h3>Product Catalog & Stock Status</h3>
+        <input type="text" id="inventory-search" placeholder="Search catalog..." style="padding: 6px 10px; width: 220px; border: 1px solid var(--border); border-radius: 4px;" onkeyup="renderInventoryTable(this.value)">
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; border: 1px solid var(--border);">
+        <table>
+          <thead>
+            <tr>
+              <th>Barcode / SKU</th>
+              <th>Product Name</th>
+              <th>Selling Rate</th>
+              <th>GST</th>
+              <th>Available Stock</th>
+              <th>Stock Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: SETTINGS, UPI & DESKTOP PRINTER -->
+  <div id="settings-view" class="view-panel">
+    <div class="form-card" style="max-width: 500px; margin: 0 auto; width: 100%;">
+      <h3 style="color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 8px;">⚙️ Store & Hardware Setup</h3>
+
+      <!-- Hardware Thermal Printer Selection (Electron Mode) -->
+      <div id="printer-selection-group">
+        <label style="font-size: 12px; font-weight: bold;">Hardware Thermal Printer (58mm/80mm):</label>
+        <select id="cfg-printer-select" class="input-box">
+          <option value="">-- Windows Default Printer --</option>
+        </select>
+        <small style="color: #666;">Select your connected USB/POS printer for instant silent printing.</small>
+      </div>
+
+      <div>
+        <label style="font-size: 12px; font-weight: bold;">UPI Virtual Payment Address (VPA) / UPI ID:</label>
+        <input type="text" id="cfg-upi-id" class="input-box" placeholder="e.g. mobileNumber@upi, shopname@okaxis, merchant@paytm">
+        <small style="color: #666;">This UPI ID receives payments when customers scan the invoice QR.</small>
+      </div>
+
+      <div>
+        <label style="font-size: 12px; font-weight: bold;">Business / Payee Name:</label>
+        <input type="text" id="cfg-store-name" class="input-box" placeholder="e.g. Speed Plus Store">
+      </div>
+
+      <div>
+        <label style="font-size: 12px; font-weight: bold;">GSTIN Number:</label>
+        <input type="text" id="cfg-gstin" class="input-box" placeholder="e.g. 07AAAAA0000A1Z5">
+      </div>
+
+      <button class="btn-action" style="background: var(--secondary); margin-top: 10px;" onclick="saveMerchantSettings()">💾 Save Store & Hardware Settings</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Supabase Config ---
+    const SUPABASE_URL = "https://ccfauxnhvwafwjghouyt.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjZmF1eG5odndhZndqZ2hvdXl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDg0MjMsImV4cCI6MjA5ODEyNDQyM30.vBw7jwGh2YGLcIuTyuvxeYCPHYSr_Y8IhNJSxs5VXew";
+    const supabaseClient = (SUPABASE_URL.includes("http") && !SUPABASE_URL.includes("your-project") && window.supabase)
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+      : null;
+
+    const RAZORPAY_KEY_ID = "rzp_test_YourKeyIdHere";
+
+    let currentUser = null;
+    let authMode = "signin";
+
+    function generateInvoiceNumber() {
+      const year = new Date().getFullYear();
+      const timestamp = Date.now().toString().slice(-6);
+      const randomSuffix = Math.floor(100 + Math.random() * 900);
+      return `SP/${year}/${timestamp}${randomSuffix}`;
+    }
+
+    let storeConfig = JSON.parse(localStorage.getItem("pos_store_config")) || {
+      upiId: "merchant@speedplus",
+      storeName: "SPEED PLUS 9.0",
+      gstin: "07AAAAA0000A1Z5",
+      selectedPrinter: ""
+    };
+
+    let inventory = JSON.parse(localStorage.getItem("pos_inventory")) || [
+      { barcode: "8901234567890", name: "WHEAT FLOUR (ATTA)", mrp: 30.00, rate: 25.00, gst: 5, stock: 45, minStock: 10 },
+      { barcode: "8901234567891", name: "RICE PREMIUM", mrp: 75.00, rate: 60.00, gst: 5, stock: 6, minStock: 10 },
+      { barcode: "8901234567892", name: "TEA LEAF", mrp: 140.00, rate: 120.00, gst: 5, stock: 2, minStock: 5 },
+      { barcode: "8901234567893", name: "SUGAR", mrp: 50.00, rate: 45.00, gst: 5, stock: 0, minStock: 10 },
+      { barcode: "8901234567894", name: "OIL REFINED", mrp: 150.00, rate: 135.00, gst: 5, stock: 18, minStock: 5 }
+    ];
+
+    let salesHistory = JSON.parse(localStorage.getItem("pos_sales_history")) || [];
+    let cart = [];
+    let activeInvoiceNo = generateInvoiceNumber();
+    document.getElementById("bill-invoice-no").innerText = activeInvoiceNo;
+
+    // ================= ADVANCED AUTHENTICATION & RECOVERY =================
+    function setAuthMode(mode) {
+      authMode = mode;
+      const title = document.getElementById("auth-title");
+      const subtitle = document.getElementById("auth-subtitle");
+      const submitBtn = document.getElementById("btn-auth-submit");
+      const pwdGroup = document.getElementById("auth-password-group");
+      const forgotLink = document.getElementById("auth-forgot-link");
+      const toggleText = document.getElementById("auth-toggle-text");
+
+      if (mode === "signin") {
+        title.innerText = "⚡ SPEED PLUS ERP";
+        subtitle.innerText = "Merchant Cloud Portal Access";
+        submitBtn.innerText = "Sign In";
+        pwdGroup.style.display = "block";
+        forgotLink.style.display = "inline-block";
+        forgotLink.innerText = "Forgot Password?";
+        toggleText.innerText = "Don't have an account? Register Merchant";
+      } else if (mode === "signup") {
+        title.innerText = "Register Merchant";
+        subtitle.innerText = "Create your cloud store account";
+        submitBtn.innerText = "Sign Up & Start";
+        pwdGroup.style.display = "block";
+        forgotLink.style.display = "none";
+        toggleText.innerText = "Already registered? Sign In";
+      } else if (mode === "forgot") {
+        title.innerText = "Password Recovery";
+        subtitle.innerText = "Receive a password reset link in your email";
+        submitBtn.innerText = "Send Reset Link";
+        pwdGroup.style.display = "none";
+        forgotLink.style.display = "inline-block";
+        forgotLink.innerText = "← Back to Sign In";
+        toggleText.innerText = "Don't have an account? Register Merchant";
+      }
+    }
+
+    function toggleRegisterSignIn() {
+      if (authMode === "signup") {
+        setAuthMode("signin");
+      } else {
+        setAuthMode("signup");
+      }
+    }
+
+    document.getElementById("auth-forgot-link").onclick = function() {
+      if (authMode === "forgot") {
+        setAuthMode("signin");
+      } else {
+        setAuthMode("forgot");
+      }
+    };
+
+    async function handleAuthSubmit() {
+      const email = document.getElementById("auth-email").value.trim();
+      const password = document.getElementById("auth-password").value.trim();
+
+      if (!email) return alert("Please enter your email address!");
+
+      if (!supabaseClient) {
+        currentUser = { id: "offline-user", email: email };
+        unlockPortal();
+        return;
+      }
+
+      if (authMode === "forgot") {
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.href
+        });
+        if (error) {
+          alert("Reset Error: " + error.message);
+        } else {
+          alert("Password reset instructions have been sent to " + email);
+          setAuthMode("signin");
+        }
+        return;
+      }
+
+      if (!password || password.length < 6) {
+        return alert("Password must be at least 6 characters long!");
+      }
+
+      if (authMode === "signup") {
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) {
+          alert("Sign Up Error: " + error.message);
+        } else {
+          alert("Account created successfully! Please check your inbox for verification.");
+          currentUser = data.user;
+          unlockPortal();
+        }
+      } else if (authMode === "signin") {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+          alert("Login Failed: " + error.message);
+        } else {
+          currentUser = data.user;
+          unlockPortal();
+        }
+      }
+    }
+
+    async function checkExistingSession() {
+      if (supabaseClient) {
+        const { data } = await supabaseClient.auth.getSession();
+        if (data && data.session) {
+          currentUser = data.session.user;
+          unlockPortal();
+        }
+
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+          if (event === "PASSWORD_RECOVERY") {
+            document.getElementById("reset-modal").style.display = "flex";
+          } else if (event === "SIGNED_IN" && session) {
+            currentUser = session.user;
+            unlockPortal();
+          }
+        });
+      }
+    }
+
+    async function submitPasswordUpdate() {
+      const newPassword = document.getElementById("new-reset-password").value.trim();
+      if (!newPassword || newPassword.length < 6) {
+        return alert("Password must be at least 6 characters!");
+      }
+
+      const { data, error } = await supabaseClient.auth.updateUser({ password: newPassword });
+      if (error) {
+        alert("Password update failed: " + error.message);
+      } else {
+        alert("Password updated successfully! Welcome back.");
+        document.getElementById("reset-modal").style.display = "none";
+        currentUser = data.user;
+        unlockPortal();
+      }
+    }
+
+    function unlockPortal() {
+      document.getElementById("auth-overlay").style.display = "none";
+      document.getElementById("merchant-user-display").innerText = "👤 " + (currentUser?.email || "Merchant");
+      
+      const ribbon = document.getElementById("email-unverified-ribbon");
+      if (currentUser && !currentUser.email_confirmed_at && currentUser.id !== "offline-user") {
+        ribbon.style.display = "flex";
+      } else {
+        ribbon.style.display = "none";
+      }
+
+      verifyMerchantSubscription();
+      loadProductsFromSupabase();
+      populatePrinters();
+    }
+
+    async function resendVerificationEmail() {
+      if (!currentUser?.email) return;
+      const { error } = await supabaseClient.auth.resend({
+        type: 'signup',
+        email: currentUser.email
+      });
+      if (error) {
+        alert("Error resending email: " + error.message);
+      } else {
+        alert("Verification email resent to " + currentUser.email);
+      }
+    }
+
+    async function handleLogout() {
+      if (!confirm("Are you sure you want to log out?")) return;
+      if (supabaseClient) await supabaseClient.auth.signOut();
+      currentUser = null;
+      document.getElementById("auth-overlay").style.display = "flex";
+      document.getElementById("auth-password").value = "";
+      document.getElementById("paywall-overlay").style.display = "none";
+      document.getElementById("email-unverified-ribbon").style.display = "none";
+      setAuthMode("signin");
+    }
+
+    // ================= SUBSCRIPTION PAYWALL & CHECKOUT =================
+    async function verifyMerchantSubscription() {
+      if (!supabaseClient || !currentUser || currentUser.id === "offline-user") return;
+
+      try {
+        const { data, error } = await supabaseClient
+          .from("subscriptions")
+          .select("*")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Subscription check error:", error);
+          return;
+        }
+
+        const isExpired = !data || new Date() > new Date(data.valid_until) || data.status !== "active";
+
+        if (isExpired) {
+          document.getElementById("paywall-overlay").style.display = "flex";
+        } else {
+          document.getElementById("paywall-overlay").style.display = "none";
+          const daysLeft = Math.ceil((new Date(data.valid_until) - new Date()) / (1000 * 60 * 60 * 24));
+          document.getElementById("merchant-user-display").innerText = 
+            `👤 ${currentUser.email} (${data.plan_tier.toUpperCase()} — ${daysLeft}d left)`;
+        }
+      } catch (e) {
+        console.warn("Could not verify subscription:", e);
+      }
+    }
+
+    async function initiateRazorpayPayment(planId, amount) {
+      if (!currentUser) return alert("Please log in first!");
+
+      try {
+        const session = (await supabaseClient.auth.getSession()).data.session;
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-subscription`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ plan_id: planId })
+        });
+
+        const subData = await response.json();
+        if (subData.error) throw new Error(subData.error);
+
+        const options = {
+          key: RAZORPAY_KEY_ID,
+          subscription_id: subData.id,
+          name: "SPEED PLUS 9.0 ERP",
+          description: "POS Merchant Pro Subscription",
+          handler: async function (response) {
+            alert("Payment successful! Activating your license...");
+            
+            await supabaseClient
+              .from("subscriptions")
+              .update({
+                plan_tier: "pro",
+                status: "active",
+                valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                razorpay_subscription_id: response.razorpay_subscription_id
+              })
+              .eq("user_id", currentUser.id);
+
+            document.getElementById("paywall-overlay").style.display = "none";
+            verifyMerchantSubscription();
+          },
+          prefill: { email: currentUser.email },
+          theme: { color: "#328cc1" }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+      } catch (err) {
+        alert("Subscription initialization failed: " + err.message);
+      }
+    }
+
+    // ================= PRINTER & APP LOGIC =================
+    async function populatePrinters() {
+      if (window.electronAPI && window.electronAPI.isDesktopApp) {
+        const printers = await window.electronAPI.getPrinters();
+        const select = document.getElementById("cfg-printer-select");
+        select.innerHTML = '<option value="">-- Windows Default Printer --</option>';
+        printers.forEach(p => {
+          const opt = document.createElement("option");
+          opt.value = p.name;
+          opt.innerText = `${p.name} ${p.isDefault ? '(Default)' : ''}`;
+          if (p.name === storeConfig.selectedPrinter) opt.selected = true;
+          select.appendChild(opt);
+        });
+      }
+    }
+
+    async function loadProductsFromSupabase() {
+      if (supabaseClient && navigator.onLine && currentUser) {
+        try {
+          const { data, error } = await supabaseClient.from("products").select("*");
+          if (!error && data && data.length > 0) {
+            inventory = data.map(d => ({
+              barcode: d.barcode,
+              name: d.name,
+              mrp: parseFloat(d.mrp) || 0,
+              rate: parseFloat(d.rate) || 0,
+              gst: parseFloat(d.gst) || 0,
+              stock: parseInt(d.stock) || 0,
+              minStock: parseInt(d.min_stock) || 5
+            }));
+            localStorage.setItem("pos_inventory", JSON.stringify(inventory));
+            renderInventoryTable();
+            populateDropdown();
+          }
+        } catch (e) {
+          console.warn("Could not fetch remote products:", e);
+        }
+      }
+    }
+
+    function applyStoreConfigUI() {
+      document.getElementById("cfg-upi-id").value = storeConfig.upiId;
+      document.getElementById("cfg-store-name").value = storeConfig.storeName;
+      document.getElementById("cfg-gstin").value = storeConfig.gstin;
+
+      document.getElementById("bill-store-name").innerText = storeConfig.storeName;
+      document.getElementById("bill-gstin").innerText = storeConfig.gstin;
+      document.getElementById("bill-upi-display").innerText = "UPI ID: " + storeConfig.upiId;
+    }
+
+    function saveMerchantSettings() {
+      const upiId = document.getElementById("cfg-upi-id").value.trim();
+      const storeName = document.getElementById("cfg-store-name").value.trim();
+      const gstin = document.getElementById("cfg-gstin").value.trim();
+      const selectedPrinter = document.getElementById("cfg-printer-select") ? document.getElementById("cfg-printer-select").value : "";
+
+      if (!upiId || !storeName) {
+        return alert("UPI ID and Store Name are required!");
+      }
+
+      storeConfig = { upiId, storeName, gstin, selectedPrinter };
+      localStorage.setItem("pos_store_config", JSON.stringify(storeConfig));
+      applyStoreConfigUI();
+      renderPOS();
+      alert("Settings updated successfully!");
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll(".view-panel").forEach(el => el.classList.remove("active"));
+      document.querySelectorAll(".nav-tab-btn").forEach(el => el.classList.remove("active"));
+      
+      if(tab === 'pos') {
+        document.getElementById("pos-view").classList.add("active");
+        event.target.classList.add("active");
+        populateDropdown();
+      } else if(tab === 'dashboard') {
+        document.getElementById("dashboard-view").classList.add("active");
+        event.target.classList.add("active");
+        renderDashboard();
+      } else if(tab === 'inventory') {
+        document.getElementById("inventory-view").classList.add("active");
+        event.target.classList.add("active");
+        renderInventoryTable();
+      } else if(tab === 'settings') {
+        document.getElementById("settings-view").classList.add("active");
+        event.target.classList.add("active");
+        populatePrinters();
+      }
+    }
+
+    function populateDropdown() {
+      const dropdown = document.getElementById("pos-product-dropdown");
+      dropdown.innerHTML = '<option value="">-- Choose Product --</option>';
+      inventory.forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item.barcode;
+        opt.innerText = `${item.name} (Stock: ${item.stock}) - ₹${item.rate}`;
+        dropdown.appendChild(opt);
+      });
+    }
+
+    document.getElementById("pos-barcode-input").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") handleManualSearch();
+    });
+
+    function handleDropdownSelection(code) {
+      if (!code) return;
+      lookupAndAdd(code);
+      document.getElementById("pos-product-dropdown").value = "";
+    }
+
+    function handleManualSearch() {
+      const val = document.getElementById("pos-barcode-input").value.trim();
+      if (!val) return;
+      lookupAndAdd(val);
+      document.getElementById("pos-barcode-input").value = "";
+    }
+
+    function lookupAndAdd(searchQuery) {
+      const product = inventory.find(p => 
+        p.barcode.toLowerCase() === searchQuery.toLowerCase() || 
+        p.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
+      if (product) {
+        if (product.stock <= 0) {
+          alert(`⚠️ OUT OF STOCK: Cannot add '${product.name}' to bill!`);
+          return;
+        }
+
+        const existing = cart.find(i => i.barcode === product.barcode);
+        if (existing) {
+          if (existing.qty + 1 > product.stock) {
+            alert(`⚠️ Cannot exceed available stock limit (${product.stock})!`);
+            return;
+          }
+          existing.qty += 1;
+        } else {
+          cart.push({ ...product, qty: 1 });
+        }
+        renderPOS();
+      } else {
+        alert("Product with Barcode/SKU: '" + searchQuery + "' not found!");
+      }
+    }
+
+    function updateQty(idx, amt) {
+      const item = cart[idx];
+      const invRef = inventory.find(p => p.barcode === item.barcode);
+
+      if (amt > 0 && invRef && item.qty + amt > invRef.stock) {
+        alert(`⚠️ Only ${invRef.stock} units available in stock!`);
+        return;
+      }
+
+      item.qty += amt;
+      if (item.qty <= 0) cart.splice(idx, 1);
+      renderPOS();
+    }
+
+    function renderPOS() {
+      const tbody = document.getElementById("pos-cart-tbody");
+      const billTbody = document.getElementById("bill-receipt-items");
+      tbody.innerHTML = "";
+      billTbody.innerHTML = "";
+
+      let taxable = 0;
+      let totalGst = 0;
+      let grandTotal = 0;
+
+      cart.forEach((item, idx) => {
+        const itemTaxable = item.rate * item.qty;
+        const itemGst = itemTaxable * (item.gst / 100);
+        const itemTotal = itemTaxable + itemGst;
+
+        taxable += itemTaxable;
+        totalGst += itemGst;
+        grandTotal += itemTotal;
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${item.barcode}</td>
+            <td>${item.name}</td>
+            <td>₹${item.mrp.toFixed(2)}</td>
+            <td>₹${item.rate.toFixed(2)}</td>
+            <td>${item.gst}%</td>
+            <td>
+              <button onclick="updateQty(${idx}, -1)">-</button>
+              <strong>${item.qty}</strong>
+              <button onclick="updateQty(${idx}, 1)">+</button>
+            </td>
+            <td>₹${itemTotal.toFixed(2)}</td>
+            <td><button style="color:red; border:none; cursor:pointer;" onclick="cart.splice(${idx},1); renderPOS();">×</button></td>
+          </tr>
+        `;
+
+        billTbody.innerHTML += `
+          <tr>
+            <td>${item.name}</td>
+            <td>${item.qty}</td>
+            <td>${item.rate.toFixed(2)}</td>
+            <td style="text-align: right;">${itemTotal.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+
+      const halfGst = totalGst / 2;
+      document.getElementById("txt-taxable").innerText = taxable.toFixed(2);
+      document.getElementById("txt-cgst").innerText = halfGst.toFixed(2);
+      document.getElementById("txt-sgst").innerText = halfGst.toFixed(2);
+      document.getElementById("txt-grand").innerText = grandTotal.toFixed(2);
+
+      document.getElementById("bill-taxable").innerText = taxable.toFixed(2);
+      document.getElementById("bill-tax").innerText = totalGst.toFixed(2);
+      document.getElementById("bill-grand").innerText = grandTotal.toFixed(2);
+
+      const encodedStore = encodeURIComponent(storeConfig.storeName);
+      const upiUrl = `upi://pay?pa=${storeConfig.upiId}&pn=${encodedStore}&am=${grandTotal.toFixed(2)}&cu=INR&tn=Bill-${activeInvoiceNo}`;
+      
+      QRCode.toCanvas(document.getElementById("bill-upi-qr"), upiUrl, { width: 100 });
+      JsBarcode("#bill-barcode", activeInvoiceNo, { format: "CODE128", width: 1.1, height: 26, displayValue: false });
+    }
+
+    function renderInventoryTable(filter = "") {
+      const tbody = document.getElementById("inventory-table-body");
+      tbody.innerHTML = "";
+
+      const filtered = inventory.filter(i => 
+        i.name.toLowerCase().includes(filter.toLowerCase()) || 
+        i.barcode.toLowerCase().includes(filter.toLowerCase())
+      );
+
+      filtered.forEach(item => {
+        let badgeHtml = "";
+        if (item.stock <= 0) {
+          badgeHtml = `<span class="stock-badge stock-out">Out of Stock (0)</span>`;
+        } else if (item.stock <= item.minStock) {
+          badgeHtml = `<span class="stock-badge stock-low">⚠️ Low Stock (${item.stock})</span>`;
+        } else {
+          badgeHtml = `<span class="stock-badge stock-ok">In Stock (${item.stock})</span>`;
+        }
+
+        tbody.innerHTML += `
+          <tr>
+            <td><strong>${item.barcode}</strong></td>
+            <td>${item.name}</td>
+            <td>₹${item.rate.toFixed(2)}</td>
+            <td>${item.gst}%</td>
+            <td><strong>${item.stock}</strong> (Alert at &le; ${item.minStock})</td>
+            <td>${badgeHtml}</td>
+            <td>
+              <button class="badge-edit" onclick="editProduct('${item.barcode}')">✏️ Edit</button>
+              <button class="badge-delete" onclick="deleteProduct('${item.barcode}')">🗑️ Del</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function editProduct(barcode) {
+      const item = inventory.find(i => i.barcode === barcode);
+      if (!item) return;
+
+      document.getElementById("edit-original-barcode").value = item.barcode;
+      document.getElementById("inv-name").value = item.name;
+      document.getElementById("inv-code").value = item.barcode;
+      document.getElementById("inv-mrp").value = item.mrp;
+      document.getElementById("inv-rate").value = item.rate;
+      document.getElementById("inv-gst").value = item.gst;
+      document.getElementById("inv-stock").value = item.stock;
+      document.getElementById("inv-min-stock").value = item.minStock;
+
+      document.getElementById("form-heading").innerText = "Edit Item Details";
+      document.getElementById("btn-save-item").innerText = "Update Item";
+      document.getElementById("btn-cancel-edit").style.display = "block";
+
+      generateLabelPreview(item);
+    }
+
+    function resetForm() {
+      document.getElementById("edit-original-barcode").value = "";
+      document.getElementById("inv-name").value = "";
+      document.getElementById("inv-code").value = "";
+      document.getElementById("inv-mrp").value = "";
+      document.getElementById("inv-rate").value = "";
+      document.getElementById("inv-gst").value = "5";
+      document.getElementById("inv-stock").value = "50";
+      document.getElementById("inv-min-stock").value = "10";
+
+      document.getElementById("form-heading").innerText = "Add / Edit Item";
+      document.getElementById("btn-save-item").innerText = "💾 Save Item";
+      document.getElementById("btn-cancel-edit").style.display = "none";
+    }
+
+    async function deleteProduct(barcode) {
+      if (!confirm("Are you sure you want to delete this item?")) return;
+      
+      inventory = inventory.filter(i => i.barcode !== barcode);
+      localStorage.setItem("pos_inventory", JSON.stringify(inventory));
+      
+      if (supabaseClient && navigator.onLine) {
+        try {
+          await supabaseClient.from("products").delete().eq("barcode", barcode);
+        } catch (e) {
+          console.warn("Could not delete from Supabase:", e);
+        }
+      }
+
+      renderInventoryTable();
+      populateDropdown();
+    }
+
+    function generateRandomSKU() {
+      document.getElementById("inv-code").value = "890" + Math.floor(1000000000 + Math.random() * 9000000000);
+    }
+
+    async function saveProductAndPreview() {
+      const origCode = document.getElementById("edit-original-barcode").value;
+      const name = document.getElementById("inv-name").value.trim();
+      const code = document.getElementById("inv-code").value.trim();
+      const mrp = parseFloat(document.getElementById("inv-mrp").value) || 0;
+      const rate = parseFloat(document.getElementById("inv-rate").value) || 0;
+      const gst = parseFloat(document.getElementById("inv-gst").value) || 0;
+      const stock = parseInt(document.getElementById("inv-stock").value) || 0;
+      const minStock = parseInt(document.getElementById("inv-min-stock").value) || 5;
+
+      if (!name || !code || rate <= 0) {
+        return alert("Please fill Name, Barcode/SKU, and a valid Rate!");
+      }
+
+      const updatedItem = { barcode: code, name, mrp, rate, gst, stock, minStock };
+
+      if (origCode) {
+        const idx = inventory.findIndex(p => p.barcode === origCode);
+        if (idx >= 0) inventory[idx] = updatedItem;
+      } else {
+        const idx = inventory.findIndex(p => p.barcode === code);
+        if (idx >= 0) inventory[idx] = updatedItem;
+        else inventory.push(updatedItem);
+      }
+
+      localStorage.setItem("pos_inventory", JSON.stringify(inventory));
+
+      if (supabaseClient && navigator.onLine) {
+        try {
+          const { error } = await supabaseClient.from("products").upsert({
+            user_id: currentUser?.id,
+            barcode: code,
+            name: name,
+            mrp: mrp,
+            rate: rate,
+            gst: gst,
+            stock: stock,
+            min_stock: minStock,
+            updated_at: new Date().toISOString()
+          }, { onConflict: "barcode" });
+
+          if (error) console.error("Product sync error:", error);
+        } catch (e) {
+          console.warn("Product cloud sync failed:", e);
+        }
+      }
+
+      renderInventoryTable();
+      populateDropdown();
+      renderPOS();
+      generateLabelPreview(updatedItem);
+      resetForm();
+
+      alert("Item & stock details saved successfully!");
+    }
+
+    function generateLabelPreview(item) {
+      document.getElementById("lbl-name").innerText = item.name;
+      document.getElementById("lbl-mrp").innerText = item.mrp.toFixed(2);
+      document.getElementById("lbl-code").innerText = item.barcode;
+
+      JsBarcode("#lbl-barcode-svg", item.barcode, {
+        format: "CODE128",
+        width: 1.3,
+        height: 32,
+        displayValue: true,
+        fontSize: 10
+      });
+
+      const qrPayload = JSON.stringify(item);
+      QRCode.toCanvas(document.getElementById("lbl-qr-canvas"), qrPayload, { width: 70 });
+    }
+
+    function renderDashboard() {
+      let totalSales = 0;
+      let totalGst = 0;
+      
+      const tbody = document.getElementById("sales-history-tbody");
+      tbody.innerHTML = "";
+
+      salesHistory.forEach(record => {
+        totalSales += record.grand_total;
+        totalGst += (record.cgst + record.sgst);
+
+        const itemsSummary = (record.items || []).map(i => `${i.name} (x${i.qty})`).join(", ");
+
+        tbody.innerHTML += `
+          <tr>
+            <td><strong>${record.invoice_no || record.invoice_number}</strong></td>
+            <td>${new Date(record.created_at).toLocaleString('en-IN')}</td>
+            <td><small>${itemsSummary}</small></td>
+            <td>₹${record.taxable.toFixed(2)}</td>
+            <td>₹${(record.cgst + record.sgst).toFixed(2)}</td>
+            <td><strong style="color: green;">₹${record.grand_total.toFixed(2)}</strong></td>
+          </tr>
+        `;
+      });
+
+      const lowStockItems = inventory.filter(i => i.stock <= i.minStock).length;
+
+      document.getElementById("kpi-total-sales").innerText = totalSales.toFixed(2);
+      document.getElementById("kpi-total-bills").innerText = salesHistory.length;
+      document.getElementById("kpi-total-gst").innerText = totalGst.toFixed(2);
+      document.getElementById("kpi-low-stock-count").innerText = lowStockItems;
+    }
+
+    function clearSalesData() {
+      if (!confirm("Are you sure you want to reset all recorded sales history?")) return;
+      salesHistory = [];
+      localStorage.setItem("pos_sales_history", JSON.stringify(salesHistory));
+      renderDashboard();
+    }
+
+    // ================= COMPLETE INVOICE & SILENT PRINTING =================
+    async function saveAndPrintReceipt() {
+      if (cart.length === 0) return alert("Add items to bill first!");
+
+      const taxable = parseFloat(document.getElementById("txt-taxable").innerText) || 0;
+      const halfGst = parseFloat(document.getElementById("txt-cgst").innerText) || 0;
+      const grandTotal = parseFloat(document.getElementById("txt-grand").innerText) || 0;
+      const totalTax = halfGst * 2;
+
+      // 1. Deduct local stock
+      cart.forEach(cartItem => {
+        const invItem = inventory.find(i => i.barcode === cartItem.barcode);
+        if (invItem) {
+          invItem.stock = Math.max(0, invItem.stock - cartItem.qty);
+        }
+      });
+      localStorage.setItem("pos_inventory", JSON.stringify(inventory));
+
+      // 2. Prepare payloads
+      const invoicePayload = {
+        user_id: currentUser?.id,
+        invoice_no: activeInvoiceNo,
+        invoice_number: activeInvoiceNo,
+        subtotal: taxable,
+        taxable: taxable,
+        taxable_amount: taxable,
+        cgst: halfGst,
+        sgst: halfGst,
+        total_tax: totalTax,
+        total_amount: grandTotal,
+        grand_total: grandTotal,
+        items: [...cart],
+        created_at: new Date().toISOString()
+      };
+
+      const invoiceItemsRows = cart.map(item => {
+        const itemTaxable = (item.rate || 0) * (item.qty || 1);
+        const itemTotal = itemTaxable + (itemTaxable * ((item.gst || 0) / 100));
+        return {
+          user_id: currentUser?.id,
+          invoice_no: activeInvoiceNo,
+          invoice_number: activeInvoiceNo,
+          barcode: item.barcode,
+          name: item.name,
+          item_name: item.name,
+          product_name: item.name,
+          mrp: item.mrp || 0,
+          rate: item.rate || 0,
+          price: item.rate || 0,
+          gst: item.gst || 0,
+          gst_rate: item.gst || 0,
+          gst_percent: item.gst || 0,
+          qty: item.qty || 1,
+          quantity: item.qty || 1,
+          total: parseFloat(itemTotal.toFixed(2)),
+          total_amount: parseFloat(itemTotal.toFixed(2)),
+          created_at: new Date().toISOString()
+        };
+      });
+
+      salesHistory.unshift(invoicePayload);
+      localStorage.setItem("pos_sales_history", JSON.stringify(salesHistory));
+
+      // 3. Supabase Cloud Sync
+      if (supabaseClient && navigator.onLine) {
+        try {
+          const invRes = await supabaseClient.from("invoices").insert([invoicePayload]);
+          if (invRes.error) console.error("Invoices error:", invRes.error.message);
+
+          const itemsRes = await supabaseClient.from("invoice_items").insert(invoiceItemsRows);
+          if (itemsRes.error) console.error("Invoice items error:", itemsRes.error.message);
+
+          for (const item of cart) {
+            const currentItem = inventory.find(i => i.barcode === item.barcode);
+            if (currentItem) {
+              await supabaseClient
+                .from("products")
+                .update({ stock: currentItem.stock, updated_at: new Date().toISOString() })
+                .eq("barcode", item.barcode);
+            }
+          }
+        } catch (e) {
+          console.warn("Supabase multi-table sync error:", e);
+        }
+      }
+
+      // 4. PRINTING: Desktop Silent Print vs Browser Dialog
+      if (window.electronAPI && window.electronAPI.isDesktopApp) {
+        const receiptHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; font-family: monospace; font-size: 11px; }
+              body { width: 58mm; padding: 4px; color: #000; }
+              .center { text-align: center; }
+              table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+              th, td { text-align: left; padding: 2px 0; font-size: 10px; }
+            </style>
+          </head>
+          <body>
+            ${document.getElementById("bill-receipt").outerHTML}
+          </body>
+          </html>
+        `;
+
+        const printRes = await window.electronAPI.silentPrint({
+          htmlContent: receiptHtml,
+          printerName: storeConfig.selectedPrinter || ""
+        });
+
+        if (!printRes.success) {
+          console.warn("Desktop silent print warning:", printRes.error);
+        }
+      } else {
+        window.print();
+      }
+
+      // 5. Reset Cart & Prepare Next Invoice
+      cart = [];
+      activeInvoiceNo = generateInvoiceNumber();
+      document.getElementById("bill-invoice-no").innerText = activeInvoiceNo;
+      
+      populateDropdown();
+      renderPOS();
+    }
+
+    // Initialize application
+    applyStoreConfigUI();
+    checkExistingSession();
+    populateDropdown();
+    renderPOS();
+    renderInventoryTable();
+    generateLabelPreview(inventory[0]);
+  </script>
+</body>
+</html>
