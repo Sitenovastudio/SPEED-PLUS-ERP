@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SPEED PLUS 9.0 — GST Billing, Sales Dashboard & Inventory Alert</title>
   
-  <!-- Supabase, QRCode, JsBarcode & Razorpay Checkout -->
+  <!-- Supabase, QRCode & JsBarcode Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
   <style>
     :root {
@@ -59,7 +58,7 @@
       position: relative;
       width: 100%;
       max-width: 420px;
-      padding: 36px 32px;
+      padding: 34px 28px;
       background: rgba(255, 255, 255, 0.12);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
@@ -70,7 +69,7 @@
       text-align: center;
     }
 
-    .glass-card h2 { font-size: 24px; margin-bottom: 6px; letter-spacing: 0.5px; }
+    .glass-card h2 { font-size: 24px; margin-bottom: 4px; letter-spacing: 0.5px; }
     .glass-card p { font-size: 13px; color: rgba(255,255,255,0.75); margin-bottom: 20px; }
 
     .glass-input-group {
@@ -95,7 +94,7 @@
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 8px;
       color: #ffffff;
-      font-size: 14px;
+      font-size: 13px;
       outline: none;
       transition: all 0.2s ease;
     }
@@ -110,12 +109,12 @@
     .glass-btn {
       width: 100%;
       padding: 12px;
-      margin-top: 18px;
+      margin-top: 16px;
       background: linear-gradient(135deg, #328cc1, #0b3c5d);
       border: 1px solid rgba(255, 255, 255, 0.3);
       border-radius: 8px;
       color: white;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
@@ -130,12 +129,12 @@
     .auth-links {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      margin-top: 16px;
+      gap: 6px;
+      margin-top: 14px;
     }
 
     .auth-toggle-link {
-      font-size: 12px;
+      font-size: 11px;
       color: rgba(255, 255, 255, 0.8);
       cursor: pointer;
       text-decoration: underline;
@@ -172,17 +171,6 @@
       justify-content: center;
       align-items: center;
       background: rgba(0,0,0,0.7);
-    }
-
-    #paywall-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 9998;
-      background: rgba(4, 21, 33, 0.94);
-      backdrop-filter: blur(14px);
-      justify-content: center;
-      align-items: center;
     }
 
     /* ================= MAIN APP STYLES ================= */
@@ -425,40 +413,6 @@
     </div>
   </div>
 
-  <!-- ==================== SUBSCRIPTION EXPIRED PAYWALL MODAL ==================== -->
-  <div id="paywall-overlay">
-    <div class="glass-card" style="max-width: 480px;">
-      <div style="font-size: 40px; margin-bottom: 6px;">🔒</div>
-      <h2>Subscription Expired</h2>
-      <p>Your license period has ended. Upgrade to continue billing and managing inventory.</p>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom: 20px; text-align:left;">
-        <div style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:10px; padding:14px;">
-          <h4 style="font-size:13px; color:var(--secondary);">Monthly Pro</h4>
-          <div style="font-size:20px; font-weight:bold; margin:6px 0;">₹499<span style="font-size:11px; font-weight:normal;">/mo</span></div>
-          <ul style="font-size:11px; color:#ddd; padding-left:14px; margin-bottom:12px;">
-            <li>Unlimited Bills</li>
-            <li>Cloud Stock Sync</li>
-          </ul>
-          <button class="glass-btn" style="margin-top:0; padding:8px; font-size:12px;" onclick="initiateRazorpayPayment('plan_MONTHLY_ID', 499)">Upgrade</button>
-        </div>
-
-        <div style="background:rgba(255,255,255,0.08); border:1px solid var(--accent); border-radius:10px; padding:14px; position:relative;">
-          <span style="position:absolute; top:-9px; right:8px; background:var(--accent); color:#000; font-size:9px; font-weight:bold; padding:2px 6px; border-radius:4px;">SAVE 20%</span>
-          <h4 style="font-size:13px; color:var(--accent);">Annual Pro</h4>
-          <div style="font-size:20px; font-weight:bold; margin:6px 0;">₹4,799<span style="font-size:11px; font-weight:normal;">/yr</span></div>
-          <ul style="font-size:11px; color:#ddd; padding-left:14px; margin-bottom:12px;">
-            <li>Priority Support</li>
-            <li>All Pro Features</li>
-          </ul>
-          <button class="glass-btn" style="margin-top:0; padding:8px; font-size:12px; background:linear-gradient(135deg, #d9b310, #b28f00);" onclick="initiateRazorpayPayment('plan_ANNUAL_ID', 4799)">Upgrade</button>
-        </div>
-      </div>
-
-      <button class="nav-tab-btn" style="background:transparent; border:none; color:rgba(255,255,255,0.6); font-size:12px; cursor:pointer;" onclick="handleLogout()">Log out & switch account</button>
-    </div>
-  </div>
-
   <!-- Email Verification Alert Banner -->
   <div id="email-unverified-ribbon">
     <span>⚠️ Your email is not verified yet. Please check your inbox or click here to resend the confirmation link.</span>
@@ -475,7 +429,7 @@
       <button class="nav-tab-btn active" onclick="switchTab('pos')">🛒 Fast POS</button>
       <button class="nav-tab-btn" onclick="switchTab('dashboard')">📊 Sales & Reports</button>
       <button class="nav-tab-btn" onclick="switchTab('inventory')">📦 Products & Stock</button>
-      <button class="nav-tab-btn" onclick="switchTab('settings')">⚙️ UPI & Store Setup</button>
+      <button class="nav-tab-btn" onclick="switchTab('settings')">⚙️ Store & Hardware</button>
       <button class="nav-tab-btn" style="background: rgba(231,76,60,0.8); border-color: transparent;" onclick="handleLogout()">🚪 Logout</button>
     </div>
   </nav>
@@ -712,7 +666,6 @@
     <div class="form-card" style="max-width: 500px; margin: 0 auto; width: 100%;">
       <h3 style="color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 8px;">⚙️ Store & Hardware Setup</h3>
 
-      <!-- Hardware Thermal Printer Selection (Electron Mode) -->
       <div id="printer-selection-group">
         <label style="font-size: 12px; font-weight: bold;">Hardware Thermal Printer (58mm/80mm):</label>
         <select id="cfg-printer-select" class="input-box">
@@ -749,8 +702,6 @@
       ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
       : null;
 
-    const RAZORPAY_KEY_ID = "rzp_test_YourKeyIdHere";
-
     let currentUser = null;
     let authMode = "signin";
 
@@ -781,7 +732,7 @@
     let activeInvoiceNo = generateInvoiceNumber();
     document.getElementById("bill-invoice-no").innerText = activeInvoiceNo;
 
-    // ================= ADVANCED AUTHENTICATION & RECOVERY =================
+    // ================= AUTHENTICATION & PASSWORD RECOVERY =================
     function setAuthMode(mode) {
       authMode = mode;
       const title = document.getElementById("auth-title");
@@ -867,7 +818,7 @@
         if (error) {
           alert("Sign Up Error: " + error.message);
         } else {
-          alert("Account created successfully! Please check your inbox for verification.");
+          alert("Account created successfully! Logging you in...");
           currentUser = data.user;
           unlockPortal();
         }
@@ -929,7 +880,6 @@
         ribbon.style.display = "none";
       }
 
-      verifyMerchantSubscription();
       loadProductsFromSupabase();
       populatePrinters();
     }
@@ -953,89 +903,8 @@
       currentUser = null;
       document.getElementById("auth-overlay").style.display = "flex";
       document.getElementById("auth-password").value = "";
-      document.getElementById("paywall-overlay").style.display = "none";
       document.getElementById("email-unverified-ribbon").style.display = "none";
       setAuthMode("signin");
-    }
-
-    // ================= SUBSCRIPTION PAYWALL & CHECKOUT =================
-    async function verifyMerchantSubscription() {
-      if (!supabaseClient || !currentUser || currentUser.id === "offline-user") return;
-
-      try {
-        const { data, error } = await supabaseClient
-          .from("subscriptions")
-          .select("*")
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
-
-        if (error) {
-          console.error("Subscription check error:", error);
-          return;
-        }
-
-        const isExpired = !data || new Date() > new Date(data.valid_until) || data.status !== "active";
-
-        if (isExpired) {
-          document.getElementById("paywall-overlay").style.display = "flex";
-        } else {
-          document.getElementById("paywall-overlay").style.display = "none";
-          const daysLeft = Math.ceil((new Date(data.valid_until) - new Date()) / (1000 * 60 * 60 * 24));
-          document.getElementById("merchant-user-display").innerText = 
-            `👤 ${currentUser.email} (${data.plan_tier.toUpperCase()} — ${daysLeft}d left)`;
-        }
-      } catch (e) {
-        console.warn("Could not verify subscription:", e);
-      }
-    }
-
-    async function initiateRazorpayPayment(planId, amount) {
-      if (!currentUser) return alert("Please log in first!");
-
-      try {
-        const session = (await supabaseClient.auth.getSession()).data.session;
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-subscription`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({ plan_id: planId })
-        });
-
-        const subData = await response.json();
-        if (subData.error) throw new Error(subData.error);
-
-        const options = {
-          key: RAZORPAY_KEY_ID,
-          subscription_id: subData.id,
-          name: "SPEED PLUS 9.0 ERP",
-          description: "POS Merchant Pro Subscription",
-          handler: async function (response) {
-            alert("Payment successful! Activating your license...");
-            
-            await supabaseClient
-              .from("subscriptions")
-              .update({
-                plan_tier: "pro",
-                status: "active",
-                valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                razorpay_subscription_id: response.razorpay_subscription_id
-              })
-              .eq("user_id", currentUser.id);
-
-            document.getElementById("paywall-overlay").style.display = "none";
-            verifyMerchantSubscription();
-          },
-          prefill: { email: currentUser.email },
-          theme: { color: "#328cc1" }
-        };
-
-        const rzp = new Razorpay(options);
-        rzp.open();
-      } catch (err) {
-        alert("Subscription initialization failed: " + err.message);
-      }
     }
 
     // ================= PRINTER & APP LOGIC =================
