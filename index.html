@@ -30,7 +30,6 @@
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; margin: 0; padding: 0; }
     body { display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: var(--text); overflow: hidden; }
 
-    /* Toast Notification System */
     #toast-container {
       position: fixed;
       top: 16px;
@@ -62,7 +61,6 @@
     .toast-warning { border-left: 4px solid var(--warning); }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    /* Overlays */
     #auth-overlay, #subscription-modal {
       position: fixed;
       inset: 0;
@@ -111,7 +109,6 @@
       cursor: pointer;
     }
 
-    /* Top Navigation */
     nav { background: var(--primary); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; color: white; }
     .nav-tabs { display: flex; gap: 6px; align-items: center; }
     .nav-tab-btn {
@@ -137,7 +134,6 @@
       cursor: pointer;
     }
 
-    /* Layout & Panels */
     .view-panel { display: none; flex: 1; height: calc(100vh - 49px); }
     .view-panel.active { display: flex; }
     #pos-controls { flex: 1.6; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
@@ -157,7 +153,6 @@
     #preview-panel { flex: 1; background: #64748b; padding: 16px; display: flex; justify-content: center; overflow-y: auto; }
     #bill-receipt { width: 320px; background: white; padding: 16px; font-size: 11px; height: fit-content; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); border-radius: 2px; }
 
-    /* Dashboard, Inventory & Admin UI */
     #dashboard-view, #inventory-view, #settings-view, #admin-view { padding: 16px; gap: 16px; width: 100%; overflow-y: auto; }
     .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .kpi-card { background: white; padding: 14px; border-radius: 6px; border: 1px solid var(--border); }
@@ -181,7 +176,6 @@
       gap: 6px;
     }
 
-    /* Thermal 80mm Print CSS */
     @media print {
       @page { size: 80mm auto; margin: 0; }
       body { background: white; color: black; }
@@ -230,7 +224,7 @@
     </div>
   </div>
 
-  <!-- UPGRADE / PAYWALL MODAL -->
+  <!-- UPGRADE MODAL -->
   <div id="subscription-modal">
     <div class="glass-card" style="text-align: center;">
       <h2 style="color: var(--accent);">👑 SPEED PLUS PRO</h2>
@@ -260,7 +254,6 @@
       <h3 style="font-size: 15px; letter-spacing: 0.5px;">⚡ SPEED PLUS 9.0</h3>
       <span id="nav-sync-indicator" style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #334155;">🟢 Online</span>
       
-      <!-- Plan & Remaining Days Pill -->
       <div class="plan-status-pill" id="nav-plan-container" title="Click to view subscription details" onclick="openUpgradeModal()">
         <span id="nav-plan-badge" style="font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: bold; background: var(--warning); color: white;">Trial</span>
         <span id="nav-plan-days" style="font-size: 11px; color: #f1f2f6; font-weight: 500;">Checking...</span>
@@ -297,7 +290,6 @@
         </div>
       </div>
 
-      <!-- Customer Detail Strip -->
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: white; padding: 8px; border-radius: 4px; border: 1px solid var(--border);">
         <input type="text" id="cust-name" class="input-box" placeholder="Customer Name (Optional)">
         <input type="text" id="cust-phone" class="input-box" placeholder="Phone Number (WhatsApp Bill)">
@@ -427,8 +419,8 @@
   <!-- INVENTORY VIEW -->
   <div id="inventory-view" class="view-panel">
     <div class="form-card" style="width: 380px;">
-      <h3 style="margin-bottom: 10px;">Add / Update Product</h3>
-      <input type="hidden" id="inv-edit-target">
+      <h3 style="margin-bottom: 10px;" id="inv-form-title">Add Product</h3>
+      <input type="hidden" id="inv-original-code">
       <div style="display:flex; flex-direction: column; gap: 8px;">
         <div>
           <label style="font-size: 11px;">Product Title:</label>
@@ -441,11 +433,11 @@
         <div style="display: flex; gap: 8px;">
           <div style="flex: 1;">
             <label style="font-size: 11px;">MRP (₹):</label>
-            <input type="number" id="inv-mrp" class="input-box" step="0.01">
+            <input type="number" id="inv-mrp" class="input-box" step="0.01" value="0.00">
           </div>
           <div style="flex: 1;">
-            <label style="font-size: 11px;">Selling Rate:</label>
-            <input type="number" id="inv-rate" class="input-box" step="0.01">
+            <label style="font-size: 11px;">Selling Rate (₹):</label>
+            <input type="number" id="inv-rate" class="input-box" step="0.01" placeholder="0.00">
           </div>
           <div style="flex: 1;">
             <label style="font-size: 11px;">GST%:</label>
@@ -468,14 +460,17 @@
             <input type="number" id="inv-min-stock" class="input-box" value="10">
           </div>
         </div>
-        <button class="btn-action" style="background: var(--secondary); margin-top: 6px;" onclick="saveProduct()">💾 Commit SKU</button>
+        <div style="display: flex; gap: 6px; margin-top: 6px;">
+          <button class="btn-action" style="flex: 2; background: var(--secondary);" id="btn-save-inv" onclick="saveProduct()">💾 Commit SKU</button>
+          <button class="btn-action" style="flex: 1; background: #64748b;" onclick="resetInventoryForm()">Clear</button>
+        </div>
       </div>
     </div>
 
     <div class="list-card" style="flex: 1; overflow-y: auto;">
       <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <h3>Store Inventory Catalog</h3>
-        <input type="text" placeholder="Filter items..." class="input-box" style="width: 220px;" onkeyup="renderInventoryList(this.value)">
+        <input type="text" id="inv-search-box" placeholder="Filter items..." class="input-box" style="width: 220px;" onkeyup="renderInventoryList(this.value)">
       </div>
       <table>
         <thead>
@@ -499,7 +494,6 @@
     <div class="form-card" style="max-width: 520px; margin: 0 auto; width: 100%;">
       <h3 style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px;">⚙️ Store & Subscription Details</h3>
 
-      <!-- Subscription Overview Box -->
       <div class="sub-overview-card">
         <div style="display:flex; justify-content: space-between; align-items:center;">
           <h4 style="font-size: 13px; color: #1e293b;" id="set-plan-title">Plan: Loading...</h4>
@@ -532,7 +526,7 @@
     </div>
   </div>
 
-  <!-- SUPER-ADMIN VIEW (Protected & Hidden by default) -->
+  <!-- SUPER-ADMIN VIEW -->
   <div id="admin-view" class="view-panel">
     <div style="width: 100%; display: flex; flex-direction: column; gap: 14px;">
       <div class="kpi-row">
@@ -583,7 +577,6 @@
   </div>
 
   <script>
-    /* PRODUCTION CONFIGURATION */
     const CONFIG = {
       SUPABASE_URL: "https://ccfauxnhvwafwjghouyt.supabase.co",
       SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjZmF1eG5odndhZndqZ2hvdXl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDg0MjMsImV4cCI6MjA5ODEyNDQyM30.vBw7jwGh2YGLcIuTyuvxeYCPHYSr_Y8IhNJSxs5VXew",
@@ -598,7 +591,6 @@
       ? window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY)
       : null;
 
-    /* DYNAMIC TENANT APPLICATION STATE */
     let currentUser = null;
     let authMode = "signin";
     let selectedPlan = { id: 'monthly', amount: 499, name: 'Pro Monthly Plan', days: 30 };
@@ -617,7 +609,6 @@
     let salesHistory = [];
     let outboxQueue = [];
 
-    /* TENANT LOCAL STORAGE ENGINE */
     function loadUserLocalStorage() {
       const uid = currentUser?.id || "guest";
       storeConfig = JSON.parse(localStorage.getItem(`pos_cfg_${uid}`)) || {
@@ -639,7 +630,6 @@
       localStorage.setItem(`pos_outbox_${uid}`, JSON.stringify(outboxQueue));
     }
 
-    /* TOAST NOTIFICATION */
     function showToast(msg, type = "success") {
       const container = document.getElementById("toast-container");
       const toast = document.createElement("div");
@@ -649,7 +639,6 @@
       setTimeout(() => { toast.remove(); }, 3500);
     }
 
-    /* KEYBOARD SHORTCUTS */
     window.addEventListener("keydown", (e) => {
       if (e.key === "F2") { e.preventDefault(); settleAndPrint(); }
       if (e.key === "F4") { e.preventDefault(); document.getElementById("pos-barcode-input").focus(); }
@@ -661,7 +650,6 @@
       return `SP/${d.getFullYear()}/${Date.now().toString().slice(-6)}`;
     }
 
-    /* AUTHENTICATION & MULTI-TENANCY */
     function toggleAuthMode() {
       authMode = authMode === "signin" ? "signup" : "signin";
       document.getElementById("auth-title").innerText = authMode === "signup" ? "⚡ Register Store" : "⚡ SPEED PLUS ERP";
@@ -699,11 +687,8 @@
 
     async function initSession() {
       document.getElementById("auth-overlay").style.display = "none";
-      
-      // Load user-specific storage keys
       loadUserLocalStorage();
 
-      // Check Super-Admin authorization
       const userEmail = (currentUser?.email || "").trim().toLowerCase();
       const normalizedAdminList = (CONFIG.SUPER_ADMIN_EMAILS || []).map(e => e.trim().toLowerCase());
       const isAdmin = normalizedAdminList.includes(userEmail);
@@ -711,8 +696,6 @@
       if (adminBtn) adminBtn.style.display = isAdmin ? "inline-block" : "none";
 
       await checkSubscription();
-      
-      // Await cloud sync before rendering UI so other browser state is synced
       await loadUserDataFromCloud();
 
       populateSettingsUI();
@@ -744,35 +727,45 @@
       document.getElementById("auth-overlay").style.display = "flex";
     }
 
-    /* REALTIME MULTI-BROWSER / MULTI-TAB SYNC */
     function initRealtimeSync() {
       if (!db || !currentUser || currentUser.id === "offline-merchant") return;
       if (realtimeChannel) db.removeChannel(realtimeChannel);
 
-      realtimeChannel = db.channel(`tenant-${currentUser.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `user_id=eq.${currentUser.id}` }, async () => {
-          await loadUserDataFromCloud();
-          renderInventoryList();
-          refreshDropdown();
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'store_settings', filter: `user_id=eq.${currentUser.id}` }, async () => {
-          await loadUserDataFromCloud();
-          populateSettingsUI();
-          renderCart();
-        })
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'invoices', filter: `user_id=eq.${currentUser.id}` }, async () => {
-          await loadUserDataFromCloud();
-          renderLedger();
-        })
+      realtimeChannel = db.channel(`tenant-sync-${currentUser.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'products', filter: `user_id=eq.${currentUser.id}` },
+          async () => {
+            await loadUserDataFromCloud();
+            renderInventoryList();
+            refreshDropdown();
+            showToast("📦 Inventory synced from cloud", "success");
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'store_settings', filter: `user_id=eq.${currentUser.id}` },
+          async () => {
+            await loadUserDataFromCloud();
+            populateSettingsUI();
+            renderCart();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'invoices', filter: `user_id=eq.${currentUser.id}` },
+          async () => {
+            await loadUserDataFromCloud();
+            renderLedger();
+          }
+        )
         .subscribe();
     }
 
-    /* CLOUD TENANT DATA SYNC */
     async function loadUserDataFromCloud() {
       if (!db || !currentUser || currentUser.id === "offline-merchant") return;
 
       try {
-        // 1. Fetch user store settings
         const { data: profile, error: profErr } = await db
           .from("store_settings")
           .select("*")
@@ -788,7 +781,6 @@
           };
         }
 
-        // 2. Fetch user-specific products
         const { data: cloudProducts, error: prodErr } = await db
           .from("products")
           .select("*")
@@ -796,7 +788,7 @@
 
         if (!prodErr && cloudProducts) {
           inventory = cloudProducts.map(d => ({
-            barcode: d.barcode,
+            barcode: (d.barcode || "").toString().trim(),
             name: d.name,
             mrp: parseFloat(d.mrp) || 0,
             rate: parseFloat(d.rate) || 0,
@@ -806,7 +798,6 @@
           }));
         }
 
-        // 3. Fetch user-specific ledger
         const { data: cloudInvoices, error: invErr } = await db
           .from("invoices")
           .select("*")
@@ -834,7 +825,6 @@
       }
     }
 
-    /* SUBSCRIPTION & VALIDITY ENGINE */
     function openUpgradeModal() { document.getElementById("subscription-modal").style.display = "flex"; }
     function closeModal() { document.getElementById("subscription-modal").style.display = "none"; }
 
@@ -919,7 +909,6 @@
             return false;
           }
         } else {
-          // Auto-insert 7-day free trial row
           const expiry = new Date(Date.now() + 7 * 86400000);
           await db.from("subscriptions").insert([{
             user_id: currentUser.id,
@@ -976,7 +965,6 @@
       new Razorpay(opts).open();
     }
 
-    /* VIEW SWITCHER */
     function switchView(view) {
       document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
       document.querySelectorAll(".nav-tab-btn").forEach(b => b.classList.remove("active"));
@@ -988,6 +976,7 @@
       if (tabBtn) tabBtn.classList.add("active");
 
       if (view === 'dashboard') renderLedger();
+      if (view === 'inventory') renderInventoryList();
       if (view === 'settings') { populateSettingsUI(); checkSubscription(); }
       if (view === 'admin') fetchAdminMerchantData();
     }
@@ -1012,11 +1001,12 @@
     });
 
     function lookupAndAdd(barcode) {
-      const prod = inventory.find(p => p.barcode.toLowerCase() === barcode.toLowerCase());
+      const cleanCode = (barcode || "").toString().trim().toLowerCase();
+      const prod = inventory.find(p => (p.barcode || "").toString().trim().toLowerCase() === cleanCode);
       if (!prod) return showToast("SKU not found in catalog", "warning");
       if (prod.stock <= 0) return showToast("Item out of stock", "danger");
 
-      const existing = cart.find(c => c.barcode === prod.barcode);
+      const existing = cart.find(c => (c.barcode || "").toString().trim().toLowerCase() === cleanCode);
       if (existing) {
         if (existing.qty + 1 > prod.stock) return showToast("Cannot exceed stock limit", "warning");
         existing.qty++;
@@ -1028,8 +1018,9 @@
 
     function modifyQty(idx, delta) {
       const line = cart[idx];
-      const prod = inventory.find(p => p.barcode === line.barcode);
-      if (delta > 0 && line.qty + delta > prod.stock) return showToast("Stock limit reached", "warning");
+      const cleanCode = (line.barcode || "").toString().trim().toLowerCase();
+      const prod = inventory.find(p => (p.barcode || "").toString().trim().toLowerCase() === cleanCode);
+      if (delta > 0 && prod && (line.qty + delta > prod.stock)) return showToast("Stock limit reached", "warning");
       line.qty += delta;
       if (line.qty <= 0) cart.splice(idx, 1);
       renderCart();
@@ -1084,7 +1075,6 @@
       document.getElementById("txt-total-gst").innerText = totalGst.toFixed(2);
       document.getElementById("txt-grand").innerText = grandTotal.toFixed(2);
 
-      // Thermal Receipt Preview
       document.getElementById("bill-store-name").innerText = storeConfig.name;
       document.getElementById("bill-store-address").innerText = storeConfig.address;
       document.getElementById("bill-gstin").innerText = storeConfig.gstin;
@@ -1099,7 +1089,6 @@
       JsBarcode("#bill-barcode", activeInvoiceNo, { format: "CODE128", width: 1.1, height: 20, displayValue: false });
     }
 
-    /* INVOICE SETTLEMENT & OUTBOX */
     async function settleAndPrint() {
       if (cart.length === 0) return showToast("Cart is empty!", "warning");
 
@@ -1109,10 +1098,11 @@
         return showToast("Subscription expired. Upgrade to bill.", "danger");
       }
 
-      // 1. Deduct Local Stock
       cart.forEach(c => {
-        const item = inventory.find(i => i.barcode === c.barcode);
-        if (item) item.stock = Math.max(0, item.stock - c.qty);
+        const item = inventory.find(i => (i.barcode || "").toString().trim().toLowerCase() === (c.barcode || "").toString().trim().toLowerCase());
+        if (item) {
+          item.stock = Math.max(0, item.stock - c.qty);
+        }
       });
 
       const invoiceRecord = {
@@ -1139,12 +1129,13 @@
       activeInvoiceNo = generateInvoiceNumber();
       document.getElementById("cust-name").value = "";
       document.getElementById("cust-phone").value = "";
+      
       renderCart();
+      renderInventoryList();
       refreshDropdown();
       flushOutbox();
     }
 
-    /* NON-BLOCKING OUTBOX SYNC ENGINE */
     let isSyncing = false;
 
     async function flushOutbox() {
@@ -1202,11 +1193,14 @@
           if (invError) throw new Error(invError.message);
 
           if (Array.isArray(bill.items) && bill.items.length > 0) {
-            await Promise.allSettled(
-              bill.items.map(item =>
-                db.rpc("decrement_stock", { p_barcode: item.barcode, p_qty: item.qty })
-              )
-            );
+            for (const item of bill.items) {
+              const currentLocal = inventory.find(inv => (inv.barcode || "").toString().trim().toLowerCase() === (item.barcode || "").toString().trim().toLowerCase());
+              if (currentLocal) {
+                await db.from("products").update({
+                  stock: currentLocal.stock
+                }).eq("barcode", item.barcode).eq("user_id", currentUser.id);
+              }
+            }
           }
 
           const localRecord = salesHistory.find(s => s.invoice_no === bill.invoice_no);
@@ -1239,11 +1233,35 @@
     window.addEventListener("online", flushOutbox);
     function triggerManualSync() { flushOutbox(); }
 
-    /* INVENTORY CATALOG */
+    function resetInventoryForm() {
+      document.getElementById("inv-original-code").value = "";
+      document.getElementById("inv-name").value = "";
+      document.getElementById("inv-code").value = "";
+      document.getElementById("inv-mrp").value = "0.00";
+      document.getElementById("inv-rate").value = "";
+      document.getElementById("inv-gst").value = "5";
+      document.getElementById("inv-stock").value = "50";
+      document.getElementById("inv-min-stock").value = "10";
+      document.getElementById("inv-form-title").innerText = "Add Product";
+      document.getElementById("btn-save-inv").innerText = "💾 Commit SKU";
+    }
+
     function renderInventoryList(filter = "") {
       const tbody = document.getElementById("inventory-table-body");
       tbody.innerHTML = "";
-      inventory.filter(i => i.name.toLowerCase().includes(filter.toLowerCase()) || i.barcode.includes(filter)).forEach(p => {
+      
+      const cleanFilter = (filter || "").toString().trim().toLowerCase();
+      const items = inventory.filter(i => 
+        (i.name || "").toLowerCase().includes(cleanFilter) || 
+        (i.barcode || "").toString().toLowerCase().includes(cleanFilter)
+      );
+
+      if (items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #888;">No products found in catalog.</td></tr>`;
+        return;
+      }
+
+      items.forEach(p => {
         const badge = p.stock <= 0 ? `<span class="stock-badge stock-out">Out</span>` :
           p.stock <= p.minStock ? `<span class="stock-badge stock-low">Low (${p.stock})</span>` :
           `<span class="stock-badge stock-ok">${p.stock}</span>`;
@@ -1257,8 +1275,8 @@
             <td>${badge}</td>
             <td>${p.stock > 0 ? "Active" : "Depleted"}</td>
             <td>
-              <button onclick="editProduct('${p.barcode}')" style="cursor:pointer; border:none; background:none;">✏️</button>
-              <button onclick="deleteProduct('${p.barcode}')" style="cursor:pointer; border:none; background:none; color:red;">🗑️</button>
+              <button onclick="editProduct('${p.barcode}')" title="Edit" style="cursor:pointer; border:none; background:none;">✏️</button>
+              <button onclick="deleteProduct('${p.barcode}')" title="Delete" style="cursor:pointer; border:none; background:none; color:red; margin-left: 6px;">🗑️</button>
             </td>
           </tr>
         `;
@@ -1266,6 +1284,7 @@
     }
 
     async function saveProduct() {
+      const originalCode = document.getElementById("inv-original-code").value.trim();
       const name = document.getElementById("inv-name").value.trim();
       const code = document.getElementById("inv-code").value.trim();
       const mrp = parseFloat(document.getElementById("inv-mrp").value) || 0;
@@ -1274,28 +1293,59 @@
       const stock = parseInt(document.getElementById("inv-stock").value) || 0;
       const minStock = parseInt(document.getElementById("inv-min-stock").value) || 5;
 
-      if (!name || !code || rate <= 0) return showToast("Complete valid product attributes", "warning");
+      if (!name) return showToast("Enter product title", "warning");
+      if (!code) return showToast("Enter product SKU / Barcode", "warning");
+      if (rate <= 0) return showToast("Selling rate must be greater than ₹0", "warning");
 
       const item = { barcode: code, name, mrp, rate, gst, stock, minStock };
-      const idx = inventory.findIndex(p => p.barcode === code);
-      if (idx >= 0) inventory[idx] = item; else inventory.push(item);
+      
+      const targetCode = (originalCode || code).toLowerCase();
+      const existingIdx = inventory.findIndex(p => (p.barcode || "").toString().toLowerCase() === targetCode);
+
+      if (existingIdx >= 0) {
+        inventory[existingIdx] = item;
+      } else {
+        inventory.push(item);
+      }
 
       persistUserStorage();
 
       if (db && navigator.onLine && currentUser && currentUser.id !== "offline-merchant") {
-        await db.from("products").upsert({
-          user_id: currentUser.id, barcode: code, name, mrp, rate, gst, stock, min_stock: minStock
+        if (originalCode && originalCode.toLowerCase() !== code.toLowerCase()) {
+          await db.from("products").delete().eq("barcode", originalCode).eq("user_id", currentUser.id);
+        }
+
+        const { error } = await db.from("products").upsert({
+          user_id: currentUser.id,
+          barcode: code,
+          name: name,
+          mrp: mrp,
+          rate: rate,
+          gst: gst,
+          stock: stock,
+          min_stock: minStock,
+          updated_at: new Date().toISOString()
         }, { onConflict: "user_id,barcode" });
+
+        if (error) {
+          console.error("Cloud product sync error:", error);
+          showToast(`Cloud Sync Failed: ${error.message}`, "danger");
+          return;
+        }
       }
 
+      resetInventoryForm();
       renderInventoryList();
       refreshDropdown();
-      showToast("SKU committed to catalog", "success");
+      showToast("SKU saved & synced to cloud", "success");
     }
 
     function editProduct(barcode) {
-      const p = inventory.find(i => i.barcode === barcode);
+      const cleanCode = (barcode || "").toString().trim().toLowerCase();
+      const p = inventory.find(i => (i.barcode || "").toString().trim().toLowerCase() === cleanCode);
       if (!p) return;
+
+      document.getElementById("inv-original-code").value = p.barcode;
       document.getElementById("inv-name").value = p.name;
       document.getElementById("inv-code").value = p.barcode;
       document.getElementById("inv-mrp").value = p.mrp;
@@ -1303,20 +1353,28 @@
       document.getElementById("inv-gst").value = p.gst;
       document.getElementById("inv-stock").value = p.stock;
       document.getElementById("inv-min-stock").value = p.minStock;
+
+      document.getElementById("inv-form-title").innerText = `Edit: ${p.name}`;
+      document.getElementById("btn-save-inv").innerText = "💾 Update SKU";
+      document.getElementById("inv-name").focus();
     }
 
     async function deleteProduct(barcode) {
-      if (!confirm("Delete SKU from catalog?")) return;
-      inventory = inventory.filter(p => p.barcode !== barcode);
+      if (!confirm(`Delete SKU ${barcode} from catalog?`)) return;
+
+      const cleanCode = (barcode || "").toString().trim().toLowerCase();
+      inventory = inventory.filter(p => (p.barcode || "").toString().trim().toLowerCase() !== cleanCode);
       persistUserStorage();
+
       if (db && currentUser && currentUser.id !== "offline-merchant") {
         await db.from("products").delete().eq("barcode", barcode).eq("user_id", currentUser.id);
       }
+
       renderInventoryList();
       refreshDropdown();
+      showToast("Product deleted from catalog", "success");
     }
 
-    /* SALES LEDGER */
     function renderLedger() {
       let revenue = 0, totalGst = 0;
       const tbody = document.getElementById("sales-history-tbody");
@@ -1346,7 +1404,6 @@
       document.getElementById("kpi-outbox").innerText = outboxQueue.length;
     }
 
-    /* SUPER-ADMIN TELEMETRY FETCHER */
     async function fetchAdminMerchantData() {
       const tbody = document.getElementById("admin-merchants-tbody");
       tbody.innerHTML = `<tr><td colspan="8" style="text-align: center;">Refreshing merchant telemetry...</td></tr>`;
@@ -1411,7 +1468,6 @@
       }
     }
 
-    /* SETTINGS PERSISTENCE */
     function populateSettingsUI() {
       document.getElementById("cfg-name").value = storeConfig.name;
       document.getElementById("cfg-address").value = storeConfig.address;
@@ -1443,7 +1499,6 @@
       showToast("Store configuration saved", "success");
     }
 
-    /* BOOTSTRAP INITIALIZATION */
     loadUserLocalStorage();
     populateSettingsUI();
     refreshDropdown();
