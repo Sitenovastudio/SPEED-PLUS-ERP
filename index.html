@@ -1158,6 +1158,9 @@
         return;
       }
 
+      const { data: { session } } = await db.auth.getSession();
+      if (!session) return;
+
       if (!outboxQueue || outboxQueue.length === 0) {
         if (syncBadge) {
           syncBadge.innerText = "🟢 Cloud Synced";
@@ -1181,7 +1184,7 @@
         const bill = queueToProcess[i];
         try {
           const { error: invError } = await db.from("invoices").insert([{
-            user_id: currentUser.id,
+            user_id: session.user.id,
             invoice_no: bill.invoice_no,
             taxable: bill.taxable,
             total_tax: bill.total_tax,
@@ -1197,8 +1200,9 @@
               const currentLocal = inventory.find(inv => (inv.barcode || "").toString().trim().toLowerCase() === (item.barcode || "").toString().trim().toLowerCase());
               if (currentLocal) {
                 await db.from("products").update({
-                  stock: currentLocal.stock
-                }).eq("barcode", item.barcode).eq("user_id", currentUser.id);
+                  stock: currentLocal.stock,
+                  updated_at: new Date().toISOString()
+                }).eq("barcode", item.barcode).eq("user_id", session.user.id);
               }
             }
           }
@@ -1311,26 +1315,30 @@
       persistUserStorage();
 
       if (db && navigator.onLine && currentUser && currentUser.id !== "offline-merchant") {
-        if (originalCode && originalCode.toLowerCase() !== code.toLowerCase()) {
-          await db.from("products").delete().eq("barcode", originalCode).eq("user_id", currentUser.id);
-        }
+        const { data: { session } } = await db.auth.getSession();
+        
+        if (session) {
+          if (originalCode && originalCode.toLowerCase() !== code.toLowerCase()) {
+            await db.from("products").delete().eq("barcode", originalCode).eq("user_id", session.user.id);
+          }
 
-        const { error } = await db.from("products").upsert({
-          user_id: currentUser.id,
-          barcode: code,
-          name: name,
-          mrp: mrp,
-          rate: rate,
-          gst: gst,
-          stock: stock,
-          min_stock: minStock,
-          updated_at: new Date().toISOString()
-        }, { onConflict: "user_id,barcode" });
+          const { error } = await db.from("products").upsert({
+            user_id: session.user.id,
+            barcode: code,
+            name: name,
+            mrp: mrp,
+            rate: rate,
+            gst: gst,
+            stock: stock,
+            min_stock: minStock,
+            updated_at: new Date().toISOString()
+          }, { onConflict: "user_id,barcode" });
 
-        if (error) {
-          console.error("Cloud product sync error:", error);
-          showToast(`Cloud Sync Failed: ${error.message}`, "danger");
-          return;
+          if (error) {
+            console.error("Cloud product sync error:", error);
+            showToast(`Cloud Sync Failed: ${error.message}`, "danger");
+            return;
+          }
         }
       }
 
@@ -1367,7 +1375,10 @@
       persistUserStorage();
 
       if (db && currentUser && currentUser.id !== "offline-merchant") {
-        await db.from("products").delete().eq("barcode", barcode).eq("user_id", currentUser.id);
+        const { data: { session } } = await db.auth.getSession();
+        if (session) {
+          await db.from("products").delete().eq("barcode", barcode).eq("user_id", session.user.id);
+        }
       }
 
       renderInventoryList();
@@ -1485,14 +1496,17 @@
       persistUserStorage();
 
       if (db && currentUser && currentUser.id !== "offline-merchant") {
-        await db.from("store_settings").upsert({
-          user_id: currentUser.id,
-          name: storeConfig.name,
-          address: storeConfig.address,
-          gstin: storeConfig.gstin,
-          upi: storeConfig.upi,
-          updated_at: new Date().toISOString()
-        }, { onConflict: "user_id" });
+        const { data: { session } } = await db.auth.getSession();
+        if (session) {
+          await db.from("store_settings").upsert({
+            user_id: session.user.id,
+            name: storeConfig.name,
+            address: storeConfig.address,
+            gstin: storeConfig.gstin,
+            upi: storeConfig.upi,
+            updated_at: new Date().toISOString()
+          }, { onConflict: "user_id" });
+        }
       }
 
       renderCart();
