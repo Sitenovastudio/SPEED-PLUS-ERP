@@ -587,10 +587,10 @@
     const CONFIG = {
       SUPABASE_URL: "https://ccfauxnhvwafwjghouyt.supabase.co",
       SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjZmF1eG5odndhZndqZ2hvdXl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDg0MjMsImV4cCI6MjA5ODEyNDQyM30.vBw7jwGh2YGLcIuTyuvxeYCPHYSr_Y8IhNJSxs5VXew",
-      RAZORPAY_KEY: "rzp_test_TWK1ogPjyBSc3W", // ⬅️ Replace with your Razorpay Key ID (rzp_test_... or rzp_live_...)
+      RAZORPAY_KEY: "rzp_test_TWK1ogPjyBSc3W",
       SUPER_ADMIN_EMAILS: [
         "admin@speedplus.com",
-        "sahilshaikh787513@gmail.com" // ⬅️ Replace with your super-admin login email
+        "sahilshaikh787513@gmail.com"
       ]
     };
 
@@ -604,6 +604,7 @@
     let selectedPlan = { id: 'monthly', amount: 499, name: 'Pro Monthly Plan', days: 30 };
     let cart = [];
     let activeInvoiceNo = generateInvoiceNumber();
+    let realtimeChannel = null;
 
     let storeConfig = {
       name: "SPEED PLUS STORE",
@@ -685,7 +686,7 @@
           if (error) throw error;
           currentUser = data.user;
         }
-        initSession();
+        await initSession();
       } catch (err) {
         showToast(err.message, "danger");
       }
@@ -710,6 +711,8 @@
       if (adminBtn) adminBtn.style.display = isAdmin ? "inline-block" : "none";
 
       await checkSubscription();
+      
+      // Await cloud sync before rendering UI so other browser state is synced
       await loadUserDataFromCloud();
 
       populateSettingsUI();
@@ -718,10 +721,15 @@
       renderInventoryList();
       renderLedger();
       flushOutbox();
+      initRealtimeSync();
     }
 
     function logout() {
       if (db) db.auth.signOut();
+      if (realtimeChannel && db) {
+        db.removeChannel(realtimeChannel);
+        realtimeChannel = null;
+      }
       currentUser = null;
       cart = [];
       inventory = [];
@@ -736,18 +744,57 @@
       document.getElementById("auth-overlay").style.display = "flex";
     }
 
+    /* REALTIME MULTI-BROWSER / MULTI-TAB SYNC */
+    function initRealtimeSync() {
+      if (!db || !currentUser || currentUser.id === "offline-merchant") return;
+      if (realtimeChannel) db.removeChannel(realtimeChannel);
+
+      realtimeChannel = db.channel(`tenant-${currentUser.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `user_id=eq.${currentUser.id}` }, async () => {
+          await loadUserDataFromCloud();
+          renderInventoryList();
+          refreshDropdown();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'store_settings', filter: `user_id=eq.${currentUser.id}` }, async () => {
+          await loadUserDataFromCloud();
+          populateSettingsUI();
+          renderCart();
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'invoices', filter: `user_id=eq.${currentUser.id}` }, async () => {
+          await loadUserDataFromCloud();
+          renderLedger();
+        })
+        .subscribe();
+    }
+
     /* CLOUD TENANT DATA SYNC */
     async function loadUserDataFromCloud() {
       if (!db || !currentUser || currentUser.id === "offline-merchant") return;
 
       try {
-        // 1. Fetch user-specific products
+        // 1. Fetch user store settings
+        const { data: profile, error: profErr } = await db
+          .from("store_settings")
+          .select("*")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+
+        if (!profErr && profile) {
+          storeConfig = {
+            name: profile.name || storeConfig.name,
+            address: profile.address || storeConfig.address,
+            gstin: profile.gstin || storeConfig.gstin,
+            upi: profile.upi || storeConfig.upi
+          };
+        }
+
+        // 2. Fetch user-specific products
         const { data: cloudProducts, error: prodErr } = await db
           .from("products")
           .select("*")
           .eq("user_id", currentUser.id);
 
-        if (!prodErr && cloudProducts && cloudProducts.length > 0) {
+        if (!prodErr && cloudProducts) {
           inventory = cloudProducts.map(d => ({
             barcode: d.barcode,
             name: d.name,
@@ -759,14 +806,14 @@
           }));
         }
 
-        // 2. Fetch user-specific ledger
+        // 3. Fetch user-specific ledger
         const { data: cloudInvoices, error: invErr } = await db
           .from("invoices")
           .select("*")
           .eq("user_id", currentUser.id)
           .order("created_at", { ascending: false });
 
-        if (!invErr && cloudInvoices && cloudInvoices.length > 0) {
+        if (!invErr && cloudInvoices) {
           salesHistory = cloudInvoices.map(inv => ({
             invoice_no: inv.invoice_no,
             customer_name: inv.items?.[0]?.customer_name || "Walk-in",
@@ -1258,12 +1305,12 @@
       document.getElementById("inv-min-stock").value = p.minStock;
     }
 
-    function deleteProduct(barcode) {
+    async function deleteProduct(barcode) {
       if (!confirm("Delete SKU from catalog?")) return;
       inventory = inventory.filter(p => p.barcode !== barcode);
       persistUserStorage();
       if (db && currentUser && currentUser.id !== "offline-merchant") {
-        db.from("products").delete().eq("barcode", barcode).eq("user_id", currentUser.id);
+        await db.from("products").delete().eq("barcode", barcode).eq("user_id", currentUser.id);
       }
       renderInventoryList();
       refreshDropdown();
@@ -1372,7 +1419,7 @@
       document.getElementById("cfg-upi").value = storeConfig.upi;
     }
 
-    function persistSettings() {
+    async function persistSettings() {
       storeConfig = {
         name: document.getElementById("cfg-name").value.trim(),
         address: document.getElementById("cfg-address").value.trim(),
@@ -1380,6 +1427,18 @@
         upi: document.getElementById("cfg-upi").value.trim()
       };
       persistUserStorage();
+
+      if (db && currentUser && currentUser.id !== "offline-merchant") {
+        await db.from("store_settings").upsert({
+          user_id: currentUser.id,
+          name: storeConfig.name,
+          address: storeConfig.address,
+          gstin: storeConfig.gstin,
+          upi: storeConfig.upi,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "user_id" });
+      }
+
       renderCart();
       showToast("Store configuration saved", "success");
     }
