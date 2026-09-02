@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SPEED PLUS 9.0 — Multi-Tenant Cloud POS & GST Engine</title>
 
   <!-- External Production SDKs -->
@@ -10,6 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
 
   <style>
     :root {
@@ -28,21 +29,23 @@
     }
 
     * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; margin: 0; padding: 0; }
-    body { display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: var(--text); overflow: hidden; }
+    body { display: flex; flex-direction: column; min-height: 100vh; background: var(--bg); color: var(--text); overflow-x: hidden; }
 
     #toast-container {
       position: fixed;
-      top: 16px;
-      right: 16px;
+      top: 12px;
+      right: 12px;
+      left: 12px;
       z-index: 20000;
       display: flex;
       flex-direction: column;
       gap: 8px;
       pointer-events: none;
     }
+    @media (min-width: 600px) {
+      #toast-container { left: auto; max-width: 380px; }
+    }
     .toast {
-      min-width: 260px;
-      max-width: 380px;
       padding: 12px 16px;
       border-radius: 8px;
       background: #1e293b;
@@ -59,9 +62,10 @@
     .toast-success { border-left: 4px solid var(--success); }
     .toast-danger { border-left: 4px solid var(--danger); }
     .toast-warning { border-left: 4px solid var(--warning); }
-    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-    #auth-overlay, #subscription-modal, #admin-activation-modal {
+    /* Modals */
+    #auth-overlay, #subscription-modal, #admin-activation-modal, #camera-modal, #label-print-modal {
       position: fixed;
       inset: 0;
       z-index: 10000;
@@ -69,20 +73,20 @@
       justify-content: center;
       align-items: center;
       background: radial-gradient(circle at 50% 50%, #0b3c5d 0%, #041521 100%);
+      padding: 16px;
     }
-    #subscription-modal, #admin-activation-modal { 
+    #subscription-modal, #admin-activation-modal, #camera-modal, #label-print-modal { 
       display: none; 
       z-index: 10001; 
       background: rgba(4, 21, 33, 0.9); 
       backdrop-filter: blur(10px); 
       overflow-y: auto;
-      padding: 20px;
     }
 
     .glass-card {
       width: 100%;
-      max-width: 480px;
-      padding: 28px;
+      max-width: 460px;
+      padding: 20px;
       background: rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
@@ -91,11 +95,14 @@
       color: #ffffff;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
+    @media (min-width: 600px) {
+      .glass-card { padding: 28px; }
+    }
     .glass-input-group { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; text-align: left; }
     .glass-input-group label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #cbd5e1; }
     .glass-input {
       width: 100%;
-      padding: 10px 12px;
+      padding: 12px;
       background: rgba(255, 255, 255, 0.12);
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 6px;
@@ -119,7 +126,7 @@
     .upi-checkout-container {
       background: #ffffff;
       border-radius: 12px;
-      padding: 20px;
+      padding: 16px;
       color: #1f2937;
       margin-top: 12px;
       text-align: center;
@@ -128,7 +135,7 @@
       display: block;
       width: 100%;
       box-sizing: border-box;
-      padding: 10px;
+      padding: 12px;
       background: #2563eb;
       color: #ffffff;
       text-decoration: none;
@@ -139,9 +146,8 @@
       font-size: 13px;
       margin-top: 8px;
     }
-    .upi-btn:hover { background: #1d4ed8; }
     .divider {
-      margin: 18px 0 14px 0;
+      margin: 16px 0 12px 0;
       border-top: 1px dashed #cbd5e1;
       position: relative;
     }
@@ -163,7 +169,7 @@
       justify-content: center;
       gap: 8px;
       width: 100%;
-      padding: 11px;
+      padding: 12px;
       background: #25d366;
       color: #ffffff;
       font-weight: 600;
@@ -173,26 +179,42 @@
       cursor: pointer;
       margin-top: 8px;
     }
-    .whatsapp-btn:hover { background: #1ebc59; }
-    .error-msg {
-      color: #dc2626;
-      font-size: 11px;
-      margin-top: 3px;
-      display: none;
-      text-align: left;
-    }
+    .error-msg { color: #dc2626; font-size: 11px; margin-top: 3px; display: none; text-align: left; }
 
-    nav { background: var(--primary); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; color: white; }
-    .nav-tabs { display: flex; gap: 6px; align-items: center; }
+    /* Nav Bar & Touch-friendly Scrolling */
+    nav {
+      background: var(--primary);
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      color: white;
+    }
+    @media (min-width: 900px) {
+      nav { flex-direction: row; justify-content: space-between; align-items: center; padding: 8px 16px; }
+    }
+    .nav-header { display: flex; justify-content: space-between; align-items: center; }
+    .nav-tabs {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      overflow-x: auto;
+      white-space: nowrap;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
     .nav-tab-btn {
       background: transparent;
       border: 1px solid rgba(255, 255, 255, 0.2);
       color: white;
-      padding: 6px 12px;
+      padding: 7px 12px;
       border-radius: 4px;
       cursor: pointer;
       font-weight: 600;
       font-size: 12px;
+      flex-shrink: 0;
     }
     .nav-tab-btn.active { background: var(--secondary); border-color: var(--secondary); }
 
@@ -201,38 +223,167 @@
       align-items: center;
       gap: 6px;
       background: rgba(0, 0, 0, 0.35);
-      padding: 3px 10px;
+      padding: 3px 8px;
       border-radius: 16px;
       border: 1px solid rgba(255, 255, 255, 0.15);
       cursor: pointer;
+      font-size: 11px;
     }
 
-    .view-panel { display: none; flex: 1; height: calc(100vh - 49px); }
+    /* Responsive View Panels */
+    .view-panel { display: none; flex: 1; flex-direction: column; width: 100%; }
     .view-panel.active { display: flex; }
-    #pos-controls { flex: 1.6; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+
+    /* Fast POS View */
+    #pos-view.active {
+      display: flex;
+      flex-direction: column;
+    }
+    @media (min-width: 900px) {
+      #pos-view.active {
+        flex-direction: row;
+        height: calc(100vh - 49px);
+        overflow: hidden;
+      }
+    }
+    #pos-controls {
+      flex: 1.6;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+    }
     
-    .search-grid { display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 10px; background: white; padding: 12px; border-radius: 6px; border: 1px solid var(--border); }
-    .input-box, select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; width: 100%; outline: none; }
+    .search-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    @media (min-width: 600px) {
+      .search-grid { grid-template-columns: 2fr 2fr 1fr; }
+    }
+
+    .input-box, select {
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 13px;
+      width: 100%;
+      outline: none;
+      background: #fff;
+    }
     .input-box:focus, select:focus { border-color: var(--secondary); }
 
-    table { width: 100%; border-collapse: collapse; background: white; font-size: 12px; }
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 500px; }
     th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
     th { background: #1e293b; color: white; font-weight: 600; }
     
-    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); background: white; padding: 10px; border-radius: 6px; border: 1px solid var(--border); gap: 8px; font-size: 13px; }
-    .btn-action { background: var(--success); color: white; border: none; padding: 10px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      gap: 8px;
+      font-size: 12px;
+    }
+    @media (min-width: 600px) {
+      .summary-grid { grid-template-columns: repeat(4, 1fr); font-size: 13px; }
+    }
+
+    .btn-action {
+      background: var(--success);
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+      min-height: 44px;
+    }
     .btn-action:disabled { background: #9ca3af; cursor: not-allowed; }
 
-    #preview-panel { flex: 1; background: #64748b; padding: 16px; display: flex; justify-content: center; overflow-y: auto; }
-    #bill-receipt { width: 320px; background: white; padding: 16px; font-size: 11px; height: fit-content; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); border-radius: 2px; }
+    #preview-panel {
+      flex: 1;
+      background: #64748b;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      overflow-y: auto;
+    }
+    #bill-receipt {
+      width: 100%;
+      max-width: 320px;
+      background: white;
+      padding: 16px;
+      font-size: 11px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      border-radius: 2px;
+    }
 
-    #dashboard-view, #inventory-view, #settings-view, #admin-view { padding: 16px; gap: 16px; width: 100%; overflow-y: auto; }
-    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-    .kpi-card { background: white; padding: 14px; border-radius: 6px; border: 1px solid var(--border); }
-    .kpi-card h4 { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
-    .kpi-card .kpi-num { font-size: 20px; font-weight: bold; color: var(--primary); }
+    /* General Views */
+    #dashboard-view, #inventory-view, #settings-view, #admin-view {
+      padding: 12px;
+      gap: 14px;
+      width: 100%;
+      overflow-y: auto;
+    }
+    @media (min-width: 600px) {
+      #dashboard-view, #inventory-view, #settings-view, #admin-view { padding: 16px; }
+    }
 
-    .form-card, .list-card { background: white; padding: 16px; border-radius: 6px; border: 1px solid var(--border); }
+    .kpi-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    @media (min-width: 768px) {
+      .kpi-row { grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    }
+    .kpi-card { background: white; padding: 12px; border-radius: 6px; border: 1px solid var(--border); }
+    .kpi-card h4 { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+    .kpi-card .kpi-num { font-size: 16px; font-weight: bold; color: var(--primary); }
+    @media (min-width: 600px) {
+      .kpi-card .kpi-num { font-size: 20px; }
+      .kpi-card h4 { font-size: 11px; }
+    }
+
+    .inventory-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    @media (min-width: 900px) {
+      .inventory-layout { flex-direction: row; align-items: flex-start; }
+    }
+
+    .form-card, .list-card {
+      background: white;
+      padding: 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      width: 100%;
+    }
+    @media (min-width: 600px) {
+      .form-card, .list-card { padding: 16px; }
+    }
+
     .stock-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
     .stock-ok { background: #dcfce7; color: #15803d; }
     .stock-low { background: #fef3c7; color: #b45309; }
@@ -242,19 +393,46 @@
       background: #f8fafc;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
-      padding: 14px;
+      padding: 12px;
       margin-bottom: 12px;
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
 
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    @media (min-width: 768px) {
+      .charts-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+    }
+
+    /* Thermal Label Styling */
+    .printable-label-badge {
+      width: 50mm;
+      min-height: 30mm;
+      padding: 6px;
+      background: #fff;
+      color: #000;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      text-align: center;
+      margin: 0 auto;
+      font-family: sans-serif;
+    }
+
     @media print {
-      @page { size: 80mm auto; margin: 0; }
+      @page { size: auto; margin: 0; }
       body { background: white; color: black; }
       body * { visibility: hidden; }
-      #bill-receipt, #bill-receipt * { visibility: visible; }
-      #bill-receipt {
+
+      body.print-receipt #bill-receipt, 
+      body.print-receipt #bill-receipt * { 
+        visibility: visible; 
+      }
+      body.print-receipt #bill-receipt {
         position: absolute;
         left: 0;
         top: 0;
@@ -262,6 +440,21 @@
         box-shadow: none !important;
         border: none !important;
         padding: 4mm !important;
+      }
+
+      body.print-label #printable-label-area, 
+      body.print-label #printable-label-area * { 
+        visibility: visible; 
+      }
+      body.print-label #printable-label-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 50mm !important;
+        padding: 2mm !important;
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
       }
     }
   </style>
@@ -299,18 +492,18 @@
 
   <!-- USER UPGRADE / DIRECT UPI CHECKOUT MODAL -->
   <div id="subscription-modal">
-    <div class="glass-card" style="text-align: center; max-width: 440px;">
+    <div class="glass-card" style="text-align: center;">
       <h2 style="color: var(--accent);">👑 SPEED PLUS PRO</h2>
       <p style="font-size: 12px; color: #cbd5e1; margin: 4px 0 12px;">Instant activation via Direct UPI QR / App transfer.</p>
 
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
         <div id="plan-monthly" class="glass-card" style="padding: 10px; cursor: pointer; border: 2px solid var(--accent);" onclick="selectPlan('monthly', 499, 'Pro Monthly Plan', 30)">
-          <h4 style="font-size: 13px;">Pro Monthly</h4>
+          <h4 style="font-size: 12px;">Pro Monthly</h4>
           <div style="font-size: 16px; font-weight: bold; color: var(--accent);">₹499</div>
           <small style="font-size: 10px;">30 Days</small>
         </div>
         <div id="plan-yearly" class="glass-card" style="padding: 10px; cursor: pointer; border: 1px solid rgba(255,255,255,0.2);" onclick="selectPlan('yearly', 4999, 'Annual Business Plan', 365)">
-          <h4 style="font-size: 13px;">Annual Business</h4>
+          <h4 style="font-size: 12px;">Annual Business</h4>
           <div style="font-size: 16px; font-weight: bold; color: var(--accent);">₹4,999</div>
           <small style="font-size: 10px;">365 Days (Save 17%)</small>
         </div>
@@ -351,9 +544,60 @@
     </div>
   </div>
 
+  <!-- CAMERA SCANNER MODAL -->
+  <div id="camera-modal">
+    <div class="glass-card" style="text-align: center;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="font-size: 15px; color: #fff; margin: 0;">📷 Scan Barcode</h3>
+        <button onclick="stopCameraScanner()" style="background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer;">✕</button>
+      </div>
+
+      <div style="position: relative; width: 100%; height: 260px; background: #000; border-radius: 8px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+        <video id="scanner-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+        <div style="position: absolute; width: 200px; height: 120px; border: 2px dashed #38bdf8; border-radius: 8px; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.4); pointer-events: none;"></div>
+      </div>
+
+      <p id="camera-status" style="font-size: 12px; color: #94a3b8; margin: 10px 0 0 0;">Initializing hardware...</p>
+      
+      <button class="btn-action" style="background: #dc2626; width: 100%; margin-top: 12px; padding: 10px;" onclick="stopCameraScanner()">
+        Close Camera
+      </button>
+    </div>
+  </div>
+
+  <!-- PRODUCT BARCODE LABEL PRINT MODAL -->
+  <div id="label-print-modal">
+    <div class="glass-card" style="max-width: 380px; text-align: center;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 14px;">
+        <h3 style="font-size: 15px; color: var(--accent); margin: 0;">🏷️ Product Barcode Label</h3>
+        <button onclick="closeLabelModal()" style="background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer;">✕</button>
+      </div>
+
+      <div id="printable-label-area" class="printable-label-badge">
+        <h4 id="lbl-store" style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 2px;">SPEED PLUS STORE</h4>
+        <div id="lbl-name" style="font-size: 11px; font-weight: bold; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Product Title</div>
+        <div style="display: flex; justify-content: center; gap: 8px; font-size: 10px; margin-bottom: 4px;">
+          <span style="text-decoration: line-through; color: #64748b;">MRP: ₹<span id="lbl-mrp">0.00</span></span>
+          <span style="font-weight: 800; color: #000;">OFFER: ₹<span id="lbl-rate">0.00</span></span>
+        </div>
+        <svg id="label-barcode-svg" style="width: 100%; height: 38px; display: block; margin: 0 auto;"></svg>
+        <div style="font-size: 8px; color: #475569; margin-top: 2px;">Incl. of all taxes</div>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button class="btn-action" style="flex: 2; background: var(--success); font-size: 13px; padding: 10px;" onclick="printBarcodeLabel()">
+          🖨️ Print Label
+        </button>
+        <button class="btn-action" style="flex: 1; background: #64748b; font-size: 13px; padding: 10px;" onclick="closeLabelModal()">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- SUPER-ADMIN PLAN ACTIVATION MODAL -->
   <div id="admin-activation-modal">
-    <div class="glass-card" style="max-width: 460px; width: 100%; text-align: left; background: #0f172a; border: 1px solid #334155; color: #fff;">
+    <div class="glass-card" style="text-align: left; background: #0f172a; border: 1px solid #334155;">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 14px;">
         <h3 style="font-size: 16px; color: var(--accent); margin: 0;">🛡️ Super-Admin Plan Activation</h3>
         <button onclick="closeAdminActivationModal()" style="background: none; border: none; color: #94a3b8; font-size: 18px; cursor: pointer;">✕</button>
@@ -394,7 +638,7 @@
 
       <div style="display: flex; gap: 8px;">
         <button class="btn-action" style="flex: 2; background: var(--success); font-size: 13px; padding: 10px;" onclick="commitAdminSubscriptionActivation()">
-          ✅ Confirm & Activate PRO
+          ✅ Confirm & Activate
         </button>
         <button class="btn-action" style="flex: 1; background: #64748b; font-size: 13px; padding: 10px;" onclick="closeAdminActivationModal()">
           Cancel
@@ -405,13 +649,15 @@
 
   <!-- MAIN NAVIGATION -->
   <nav>
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <h3 style="font-size: 15px; letter-spacing: 0.5px;">⚡ SPEED PLUS 9.0</h3>
-      <span id="nav-sync-indicator" style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #334155;">🟢 Online</span>
+    <div class="nav-header">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <h3 style="font-size: 15px; letter-spacing: 0.5px;">⚡ SPEED PLUS</h3>
+        <span id="nav-sync-indicator" style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #334155;">🟢 Online</span>
+      </div>
       
       <div class="plan-status-pill" id="nav-plan-container" title="Click to view subscription details" onclick="openUpgradeModal()">
-        <span id="nav-plan-badge" style="font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: bold; background: var(--warning); color: white;">Trial</span>
-        <span id="nav-plan-days" style="font-size: 11px; color: #f1f2f6; font-weight: 500;">Checking...</span>
+        <span id="nav-plan-badge" style="font-size: 9px; padding: 1px 5px; border-radius: 8px; font-weight: bold; background: var(--warning); color: white;">Trial</span>
+        <span id="nav-plan-days" style="font-size: 10px; color: #f1f2f6; font-weight: 500;">Checking...</span>
       </div>
     </div>
 
@@ -420,7 +666,7 @@
       <button class="nav-tab-btn" id="tab-dashboard" onclick="switchView('dashboard')">📊 Ledger</button>
       <button class="nav-tab-btn" id="tab-inventory" onclick="switchView('inventory')">📦 Inventory</button>
       <button class="nav-tab-btn" id="tab-settings" onclick="switchView('settings')">⚙️ Settings</button>
-      <button class="nav-tab-btn" id="btn-admin-tab" style="display: none; background: var(--admin); border-color: var(--admin);" onclick="switchView('admin')">🛡️ Super-Admin</button>
+      <button class="nav-tab-btn" id="btn-admin-tab" style="display: none; background: var(--admin); border-color: var(--admin);" onclick="switchView('admin')">🛡️ Admin</button>
       <button class="nav-tab-btn" style="background: #e67e22; border-color: #e67e22;" onclick="openUpgradeModal()">👑 Upgrade</button>
       <button class="nav-tab-btn" style="background: #dc2626; border-color: transparent;" onclick="logout()">🚪 Exit</button>
     </div>
@@ -432,7 +678,12 @@
       <div class="search-grid">
         <div>
           <label style="font-size: 11px; font-weight: bold;">Scan SKU / Barcode [F4]:</label>
-          <input type="text" id="pos-barcode-input" class="input-box" placeholder="Scan barcode..." autofocus>
+          <div style="display: flex; gap: 6px;">
+            <input type="text" id="pos-barcode-input" class="input-box" placeholder="Scan barcode..." autofocus>
+            <button class="btn-action" style="background: var(--secondary); padding: 0 12px; font-size: 14px;" title="Open Camera Scanner" onclick="startCameraScanner()">
+              📷
+            </button>
+          </div>
         </div>
         <div>
           <label style="font-size: 11px; font-weight: bold;">Select Catalog Item:</label>
@@ -445,7 +696,7 @@
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; background: white; padding: 8px; border-radius: 4px; border: 1px solid var(--border);">
+      <div style="display: grid; grid-template-columns: 1fr; gap: 6px; background: white; padding: 8px; border-radius: 4px; border: 1px solid var(--border);">
         <input type="text" id="cust-name" class="input-box" placeholder="Customer Name (Optional)">
         <input type="text" id="cust-phone" class="input-box" placeholder="Phone Number (WhatsApp Bill)">
         <select id="pos-pay-mode" class="input-box">
@@ -455,7 +706,7 @@
         </select>
       </div>
 
-      <div style="flex: 1; overflow-y: auto; background: white; border: 1px solid var(--border); border-radius: 4px;">
+      <div class="table-container" style="flex: 1; max-height: 350px;">
         <table>
           <thead>
             <tr>
@@ -474,9 +725,10 @@
 
       <div class="summary-grid">
         <div>Taxable: <strong>₹<span id="txt-taxable">0.00</span></strong></div>
-        <div>CGST / SGST: <strong>₹<span id="txt-cgst">0.00</span></strong> / <strong>₹<span id="txt-sgst">0.00</span></strong></div>
         <div>Total GST: <strong>₹<span id="txt-total-gst">0.00</span></strong></div>
-        <div>Grand Total: <strong style="color: var(--success); font-size: 15px;">₹<span id="txt-grand">0.00</span></strong></div>
+        <div style="grid-column: span 2; text-align: right; font-size: 14px;">
+          Grand Total: <strong style="color: var(--success); font-size: 16px;">₹<span id="txt-grand">0.00</span></strong>
+        </div>
       </div>
 
       <button class="btn-action" id="btn-checkout" style="padding: 12px; font-size: 14px;" onclick="settleAndPrint()">
@@ -495,7 +747,7 @@
           <p style="font-size: 9px;" id="bill-timestamp"></p>
         </div>
 
-        <table style="width: 100%; margin: 6px 0; font-size: 10px;">
+        <table style="width: 100%; margin: 6px 0; font-size: 10px; min-width: auto;">
           <thead>
             <tr style="border-bottom: 1px solid #000;">
               <th>Item</th>
@@ -518,7 +770,7 @@
         <div style="text-align: center; margin-top: 10px;">
           <canvas id="bill-upi-qr"></canvas>
           <p style="font-size: 8px; font-weight: bold; margin-top: 2px;">SCAN TO PAY VIA UPI</p>
-          <svg id="bill-barcode" style="margin-top: 4px;"></svg>
+          <svg id="bill-barcode" style="margin-top: 4px; width: 100%; max-width: 180px;"></svg>
           <p style="font-size: 8px; margin-top: 4px;">Thank you for shopping with us!</p>
         </div>
       </div>
@@ -538,124 +790,130 @@
           <div class="kpi-num" id="kpi-invoices">0</div>
         </div>
         <div class="kpi-card">
-          <h4>Total GST Collected</h4>
+          <h4>GST Collected</h4>
           <div class="kpi-num" style="color: var(--secondary);">₹<span id="kpi-gst">0.00</span></div>
         </div>
         <div class="kpi-card">
-          <h4>Pending Sync Outbox</h4>
+          <h4>Pending Outbox</h4>
           <div class="kpi-num" style="color: var(--warning);" id="kpi-outbox">0</div>
         </div>
       </div>
 
-      <div class="list-card" style="flex: 1; overflow-y: auto;">
+      <div class="list-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <h3>Audit Ledger</h3>
-          <button class="nav-tab-btn" style="background: var(--secondary);" onclick="triggerManualSync()">🔄 Force Cloud Sync</button>
+          <h3 style="font-size: 14px;">Audit Ledger</h3>
+          <button class="nav-tab-btn" style="background: var(--secondary); padding: 5px 8px;" onclick="triggerManualSync()">🔄 Sync</button>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Invoice #</th>
-              <th>Timestamp</th>
-              <th>Customer</th>
-              <th>Mode</th>
-              <th>Taxable</th>
-              <th>GST</th>
-              <th>Total</th>
-              <th>Sync Status</th>
-            </tr>
-          </thead>
-          <tbody id="sales-history-tbody"></tbody>
-        </table>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th>Timestamp</th>
+                <th>Customer</th>
+                <th>Mode</th>
+                <th>Taxable</th>
+                <th>GST</th>
+                <th>Total</th>
+                <th>Sync Status</th>
+              </tr>
+            </thead>
+            <tbody id="sales-history-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- INVENTORY VIEW -->
   <div id="inventory-view" class="view-panel">
-    <div class="form-card" style="width: 380px;">
-      <h3 style="margin-bottom: 10px;" id="inv-form-title">Add Product</h3>
-      <input type="hidden" id="inv-original-code">
-      <div style="display:flex; flex-direction: column; gap: 8px;">
-        <div>
-          <label style="font-size: 11px;">Product Title:</label>
-          <input type="text" id="inv-name" class="input-box" placeholder="e.g. Basmati Rice 5kg">
-        </div>
-        <div>
-          <label style="font-size: 11px;">Barcode / SKU:</label>
-          <input type="text" id="inv-code" class="input-box" placeholder="8901234567890">
-        </div>
-        <div style="display: flex; gap: 8px;">
-          <div style="flex: 1;">
-            <label style="font-size: 11px;">MRP (₹):</label>
-            <input type="number" id="inv-mrp" class="input-box" step="0.01" value="0.00">
+    <div class="inventory-layout">
+      <div class="form-card" style="max-width: 100%; flex: 1;">
+        <h3 style="margin-bottom: 10px; font-size: 14px;" id="inv-form-title">Add / Edit Product</h3>
+        <input type="hidden" id="inv-original-code">
+        <div style="display:flex; flex-direction: column; gap: 8px;">
+          <div>
+            <label style="font-size: 11px;">Product Title:</label>
+            <input type="text" id="inv-name" class="input-box" placeholder="e.g. Basmati Rice 5kg">
           </div>
-          <div style="flex: 1;">
-            <label style="font-size: 11px;">Selling Rate (₹):</label>
-            <input type="number" id="inv-rate" class="input-box" step="0.01" placeholder="0.00">
+          <div>
+            <label style="font-size: 11px;">Barcode / SKU:</label>
+            <input type="text" id="inv-code" class="input-box" placeholder="8901234567890">
           </div>
-          <div style="flex: 1;">
-            <label style="font-size: 11px;">GST%:</label>
-            <select id="inv-gst" class="input-box">
-              <option value="0">0%</option>
-              <option value="5" selected>5%</option>
-              <option value="12">12%</option>
-              <option value="18">18%</option>
-              <option value="28">28%</option>
-            </select>
+          <div style="display: flex; gap: 8px;">
+            <div style="flex: 1;">
+              <label style="font-size: 11px;">MRP (₹):</label>
+              <input type="number" id="inv-mrp" class="input-box" step="0.01" value="0.00">
+            </div>
+            <div style="flex: 1;">
+              <label style="font-size: 11px;">Selling Rate (₹):</label>
+              <input type="number" id="inv-rate" class="input-box" step="0.01" placeholder="0.00">
+            </div>
           </div>
-        </div>
-        <div style="display: flex; gap: 8px;">
-          <div style="flex: 1;">
-            <label style="font-size: 11px;">Stock Units:</label>
-            <input type="number" id="inv-stock" class="input-box" value="50">
+          <div style="display: flex; gap: 8px;">
+            <div style="flex: 1;">
+              <label style="font-size: 11px;">GST%:</label>
+              <select id="inv-gst" class="input-box">
+                <option value="0">0%</option>
+                <option value="5" selected>5%</option>
+                <option value="12">12%</option>
+                <option value="18">18%</option>
+                <option value="28">28%</option>
+              </select>
+            </div>
+            <div style="flex: 1;">
+              <label style="font-size: 11px;">Stock Units:</label>
+              <input type="number" id="inv-stock" class="input-box" value="50">
+            </div>
+            <div style="flex: 1;">
+              <label style="font-size: 11px;">Alert Min:</label>
+              <input type="number" id="inv-min-stock" class="input-box" value="10">
+            </div>
           </div>
-          <div style="flex: 1;">
-            <label style="font-size: 11px;">Alert Threshold:</label>
-            <input type="number" id="inv-min-stock" class="input-box" value="10">
+          <div style="display: flex; gap: 6px; margin-top: 6px;">
+            <button class="btn-action" style="flex: 2; background: var(--secondary);" id="btn-save-inv" onclick="saveProduct()">💾 Commit SKU</button>
+            <button class="btn-action" style="flex: 1; background: #64748b;" onclick="resetInventoryForm()">Clear</button>
           </div>
-        </div>
-        <div style="display: flex; gap: 6px; margin-top: 6px;">
-          <button class="btn-action" style="flex: 2; background: var(--secondary);" id="btn-save-inv" onclick="saveProduct()">💾 Commit SKU</button>
-          <button class="btn-action" style="flex: 1; background: #64748b;" onclick="resetInventoryForm()">Clear</button>
         </div>
       </div>
-    </div>
 
-    <div class="list-card" style="flex: 1; overflow-y: auto;">
-      <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <h3>Store Inventory Catalog</h3>
-        <input type="text" id="inv-search-box" placeholder="Filter items..." class="input-box" style="width: 220px;" onkeyup="renderInventoryList(this.value)">
+      <div class="list-card" style="flex: 2;">
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+          <h3 style="font-size: 14px;">Store Inventory Catalog</h3>
+          <input type="text" id="inv-search-box" placeholder="Filter items..." class="input-box" style="width: 100%; max-width: 200px;" onkeyup="renderInventoryList(this.value)">
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Rate</th>
+                <th>GST</th>
+                <th>Stock</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-table-body"></tbody>
+          </table>
+        </div>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>SKU</th>
-            <th>Name</th>
-            <th>Rate</th>
-            <th>GST</th>
-            <th>Stock</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="inventory-table-body"></tbody>
-      </table>
     </div>
   </div>
 
   <!-- SETTINGS VIEW -->
   <div id="settings-view" class="view-panel">
     <div class="form-card" style="max-width: 520px; margin: 0 auto; width: 100%;">
-      <h3 style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px;">⚙️ Store & Subscription Details</h3>
+      <h3 style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 6px; font-size: 15px;">⚙️ Store & Subscription Details</h3>
 
       <div class="sub-overview-card">
         <div style="display:flex; justify-content: space-between; align-items:center;">
-          <h4 style="font-size: 13px; color: #1e293b;" id="set-plan-title">Plan: Loading...</h4>
-          <span id="set-plan-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--warning); color: white; font-weight: bold;">Trial Active</span>
+          <h4 style="font-size: 12px; color: #1e293b;" id="set-plan-title">Plan: Loading...</h4>
+          <span id="set-plan-badge" style="font-size: 10px; padding: 2px 6px; border-radius: 10px; background: var(--warning); color: white; font-weight: bold;">Trial Active</span>
         </div>
-        <p style="font-size: 12px; color: #475569;" id="set-plan-expiry">Expires on: Loading...</p>
-        <p style="font-size: 12px; font-weight: bold; color: var(--primary);" id="set-plan-remaining">Remaining Time: Loading...</p>
+        <p style="font-size: 11px; color: #475569;" id="set-plan-expiry">Expires on: Loading...</p>
+        <p style="font-size: 11px; font-weight: bold; color: var(--primary);" id="set-plan-remaining">Remaining Time: Loading...</p>
         <button class="nav-tab-btn" style="background: var(--warning); color: white; margin-top: 6px; width: fit-content; font-size: 11px;" onclick="openUpgradeModal()">👑 Upgrade / Extend Plan</button>
       </div>
 
@@ -681,96 +939,98 @@
     </div>
   </div>
 
-  <!-- SUPER-ADMIN VIEW WITH ADVANCED FINANCIAL METRICS & GRAPHICAL CHARTS -->
+  <!-- SUPER-ADMIN VIEW WITH FINANCIAL KPIS & GRAPHICAL CHARTS -->
   <div id="admin-view" class="view-panel">
     <div style="width: 100%; display: flex; flex-direction: column; gap: 14px;">
       
       <!-- Subscription Revenue KPIs -->
-      <div class="kpi-row" style="grid-template-columns: repeat(4, 1fr);">
+      <div class="kpi-row">
         <div class="kpi-card">
-          <h4>Total Subscription ARR</h4>
+          <h4>Total ARR</h4>
           <div class="kpi-num" style="color: var(--success);">₹<span id="admin-kpi-sub-total">0.00</span></div>
-          <small style="font-size: 10px; color: #64748b;">Cumulative active plans</small>
+          <small style="font-size: 9px; color: #64748b;">Cumulative active</small>
         </div>
         <div class="kpi-card">
-          <h4>Monthly Collections</h4>
+          <h4>Monthly Plans</h4>
           <div class="kpi-num" style="color: #2563eb;">₹<span id="admin-kpi-sub-monthly">0.00</span></div>
-          <small style="font-size: 10px; color: #64748b;"><span id="admin-kpi-monthly-count">0</span> Active Subscriptions</small>
+          <small style="font-size: 9px; color: #64748b;"><span id="admin-kpi-monthly-count">0</span> Active</small>
         </div>
         <div class="kpi-card">
-          <h4>Yearly Collections</h4>
+          <h4>Yearly Plans</h4>
           <div class="kpi-num" style="color: var(--accent);">₹<span id="admin-kpi-sub-yearly">0.00</span></div>
-          <small style="font-size: 10px; color: #64748b;"><span id="admin-kpi-yearly-count">0</span> Annual Subscriptions</small>
+          <small style="font-size: 9px; color: #64748b;"><span id="admin-kpi-yearly-count">0</span> Active</small>
         </div>
         <div class="kpi-card">
           <h4>Pending Verifications</h4>
           <div class="kpi-num" style="color: var(--warning);" id="admin-kpi-pending">0</div>
-          <small style="font-size: 10px; color: #64748b;">Awaiting bank approval</small>
+          <small style="font-size: 9px; color: #64748b;">Awaiting review</small>
         </div>
       </div>
 
       <!-- Merchant Status Overview KPIs -->
-      <div class="kpi-row" style="grid-template-columns: repeat(4, 1fr);">
-        <div class="kpi-card" style="padding: 10px 14px;">
+      <div class="kpi-row">
+        <div class="kpi-card">
           <h4>Registered Merchants</h4>
-          <div class="kpi-num" id="admin-kpi-merchants" style="font-size: 16px; color: var(--primary);">0</div>
+          <div class="kpi-num" id="admin-kpi-merchants" style="color: var(--primary);">0</div>
         </div>
-        <div class="kpi-card" style="padding: 10px 14px;">
-          <h4>Paid Active Subscribers</h4>
-          <div class="kpi-num" id="admin-kpi-paid" style="font-size: 16px; color: var(--success);">0</div>
+        <div class="kpi-card">
+          <h4>Paid Active</h4>
+          <div class="kpi-num" id="admin-kpi-paid" style="color: var(--success);">0</div>
         </div>
-        <div class="kpi-card" style="padding: 10px 14px;">
-          <h4>Active 7-Day Trials</h4>
-          <div class="kpi-num" id="admin-kpi-trials" style="font-size: 16px; color: var(--warning);">0</div>
+        <div class="kpi-card">
+          <h4>Active Trials</h4>
+          <div class="kpi-num" id="admin-kpi-trials" style="color: var(--warning);">0</div>
         </div>
-        <div class="kpi-card" style="padding: 10px 14px;">
-          <h4>Expired Out-of-License</h4>
-          <div class="kpi-num" id="admin-kpi-expired" style="font-size: 16px; color: var(--danger);">0</div>
+        <div class="kpi-card">
+          <h4>Expired Stores</h4>
+          <div class="kpi-num" id="admin-kpi-expired" style="color: var(--danger);">0</div>
         </div>
       </div>
 
       <!-- Graphical Visualizations Grid -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-        <div class="list-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 260px; padding: 12px;">
-          <h4 style="font-size: 12px; margin-bottom: 8px; align-self: flex-start;">Revenue Mix (Monthly vs. Annual Plans)</h4>
-          <div style="position: relative; width: 100%; height: 210px; display: flex; justify-content: center;">
+      <div class="charts-grid">
+        <div class="list-card" style="display: flex; flex-direction: column; height: 260px; padding: 12px;">
+          <h4 style="font-size: 11px; margin-bottom: 8px;">Revenue Mix (Monthly vs. Annual Plans)</h4>
+          <div style="position: relative; width: 100%; height: 200px; display: flex; justify-content: center;">
             <canvas id="chart-sub-revenue"></canvas>
           </div>
         </div>
 
-        <div class="list-card" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 260px; padding: 12px;">
-          <h4 style="font-size: 12px; margin-bottom: 8px; align-self: flex-start;">Merchant License Lifecycle Distribution</h4>
-          <div style="position: relative; width: 100%; height: 210px; display: flex; justify-content: center;">
+        <div class="list-card" style="display: flex; flex-direction: column; height: 260px; padding: 12px;">
+          <h4 style="font-size: 11px; margin-bottom: 8px;">Merchant Status Distribution</h4>
+          <div style="position: relative; width: 100%; height: 200px; display: flex; justify-content: center;">
             <canvas id="chart-merchant-status"></canvas>
           </div>
         </div>
       </div>
 
       <!-- Super-Admin Merchant Telemetry Table -->
-      <div class="list-card" style="flex: 1; overflow-y: auto;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <h3>Platform Merchant Directory & License Activation Center</h3>
-          <button class="nav-tab-btn" style="background: var(--admin);" onclick="fetchAdminMerchantData()">🔄 Refresh Telemetry</button>
+      <div class="list-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+          <h3 style="font-size: 14px;">Merchant Directory & Licenses</h3>
+          <button class="nav-tab-btn" style="background: var(--admin); padding: 5px 8px;" onclick="fetchAdminMerchantData()">🔄 Refresh</button>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Merchant Email</th>
-              <th>Joined Date</th>
-              <th>Plan</th>
-              <th>Status</th>
-              <th>Days Left / Ref</th>
-              <th>Valid Until</th>
-              <th>Invoices</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="admin-merchants-tbody">
-            <tr>
-              <td colspan="8" style="text-align: center; color: #888;">Loading merchant telemetry...</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Merchant Email</th>
+                <th>Joined</th>
+                <th>Plan</th>
+                <th>Status</th>
+                <th>Days Left</th>
+                <th>Valid Until</th>
+                <th>Invoices</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-merchants-tbody">
+              <tr>
+                <td colspan="8" style="text-align: center; color: #888;">Loading merchant telemetry...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
     </div>
@@ -780,8 +1040,8 @@
     const CONFIG = {
       SUPABASE_URL: "https://ccfauxnhvwafwjghouyt.supabase.co",
       SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjZmF1eG5odndhZndqZ2hvdXl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDg0MjMsImV4cCI6MjA5ODEyNDQyM30.vBw7jwGh2YGLcIuTyuvxeYCPHYSr_Y8IhNJSxs5VXew",
-      PAYEE_UPI_ID: "sahil-125@ptyes",
-      ADMIN_WHATSAPP: "917875134104",
+      PAYEE_UPI_ID: "yourname@okhdfcbank",
+      ADMIN_WHATSAPP: "919876543210",
       SUPER_ADMIN_EMAILS: [
         "admin@speedplus.com",
         "sahilshaikh787513@gmail.com"
@@ -808,17 +1068,121 @@
     let chartSubRevenue = null;
     let chartMerchantStatus = null;
 
-    let storeConfig = {
-      name: "SPEED PLUS STORE",
-      address: "Main Market",
-      gstin: "07AAAAA0000A1Z5",
-      upi: "merchant@upi"
+    // Hardware Scanner Listener
+    let barcodeBuffer = "";
+    let lastKeyTime = 0;
+
+    window.addEventListener("keydown", (e) => {
+      const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+      const activeId = document.activeElement ? document.activeElement.id : "";
+      if (activeTag === "textarea" || (activeTag === "input" && activeId !== "pos-barcode-input")) return;
+
+      const now = Date.now();
+      const diff = now - lastKeyTime;
+      lastKeyTime = now;
+
+      if (e.key === "Enter") {
+        if (barcodeBuffer.length >= 3) {
+          e.preventDefault();
+          const scannedCode = barcodeBuffer.trim();
+          barcodeBuffer = "";
+          window.lookupAndAdd(scannedCode);
+          showToast(`Scanner: ${scannedCode}`, "success");
+          return;
+        }
+        barcodeBuffer = "";
+      } else if (e.key.length === 1) {
+        if (diff > 100) barcodeBuffer = "";
+        barcodeBuffer += e.key;
+      }
+    });
+
+    // Camera Barcode Scanner
+    let videoStream = null;
+    let scanningActive = false;
+    let zxingReader = null;
+
+    window.startCameraScanner = async function() {
+      const modal = document.getElementById("camera-modal");
+      const video = document.getElementById("scanner-video");
+      const status = document.getElementById("camera-status");
+
+      modal.style.display = "flex";
+      status.innerText = "Initializing camera...";
+
+      if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        status.innerHTML = `<span style="color:var(--danger)">HTTPS Required for mobile camera access.</span>`;
+        return;
+      }
+
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        video.srcObject = videoStream;
+        await video.play();
+
+        scanningActive = true;
+        status.innerText = "Align barcode within the target frame.";
+
+        if ('BarcodeDetector' in window) {
+          const nativeDetector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code'] });
+          scanWithNative(video, nativeDetector);
+        } else if (window.ZXing) {
+          scanWithZXing(video);
+        } else {
+          status.innerText = "No barcode decoding engine available.";
+        }
+      } catch (err) {
+        console.error("Camera error:", err);
+        status.innerHTML = `<span style="color:var(--danger)">Access Denied: Grant camera permissions in browser settings.</span>`;
+      }
     };
 
-    let inventory = [];
-    let salesHistory = [];
-    let outboxQueue = [];
+    async function scanWithNative(videoElement, detector) {
+      if (!scanningActive) return;
+      if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+        try {
+          const barcodes = await detector.detect(videoElement);
+          if (barcodes.length > 0) {
+            const detectedCode = barcodes[0].rawValue;
+            window.lookupAndAdd(detectedCode);
+            showToast(`Scanned: ${detectedCode}`, "success");
+            stopCameraScanner();
+            return;
+          }
+        } catch (e) {}
+      }
+      if (scanningActive) requestAnimationFrame(() => scanWithNative(videoElement, detector));
+    }
 
+    function scanWithZXing(videoElement) {
+      if (!zxingReader) zxingReader = new ZXing.BrowserMultiFormatReader();
+      zxingReader.decodeFromVideoElement(videoElement, (result, err) => {
+        if (!scanningActive) return;
+        if (result) {
+          const code = result.getText();
+          window.lookupAndAdd(code);
+          showToast(`Scanned: ${code}`, "success");
+          stopCameraScanner();
+        }
+      });
+    }
+
+    window.stopCameraScanner = function() {
+      scanningActive = false;
+      if (zxingReader) try { zxingReader.reset(); } catch(e){}
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+      const video = document.getElementById("scanner-video");
+      if (video) video.srcObject = null;
+      document.getElementById("camera-modal").style.display = "none";
+    };
+
+    // Utils & Local Persistence
     function showToast(msg, type = "success") {
       const container = document.getElementById("toast-container");
       if (!container) return;
@@ -830,18 +1194,17 @@
     }
 
     function generateInvoiceNumber() {
-      const d = new Date();
-      return `SP/${d.getFullYear()}/${Date.now().toString().slice(-6)}`;
+      return `SP/${new Date().getFullYear()}/${Date.now().toString().slice(-6)}`;
     }
+
+    let storeConfig = { name: "SPEED PLUS STORE", address: "Main Market", gstin: "07AAAAA0000A1Z5", upi: "merchant@upi" };
+    let inventory = [];
+    let salesHistory = [];
+    let outboxQueue = [];
 
     function loadUserLocalStorage() {
       const uid = currentUser?.id || "guest";
-      storeConfig = JSON.parse(localStorage.getItem(`pos_cfg_${uid}`)) || {
-        name: "SPEED PLUS STORE",
-        address: "Main Market",
-        gstin: "07AAAAA0000A1Z5",
-        upi: "merchant@upi"
-      };
+      storeConfig = JSON.parse(localStorage.getItem(`pos_cfg_${uid}`)) || { name: "SPEED PLUS STORE", address: "Main Market", gstin: "07AAAAA0000A1Z5", upi: "merchant@upi" };
       inventory = JSON.parse(localStorage.getItem(`pos_inventory_${uid}`)) || [];
       salesHistory = JSON.parse(localStorage.getItem(`pos_sales_${uid}`)) || [];
       outboxQueue = JSON.parse(localStorage.getItem(`pos_outbox_${uid}`)) || [];
@@ -855,6 +1218,7 @@
       localStorage.setItem(`pos_outbox_${uid}`, JSON.stringify(outboxQueue));
     }
 
+    // Auth & Navigation
     window.toggleAuthMode = function() {
       authMode = authMode === "signin" ? "signup" : "signin";
       document.getElementById("auth-title").innerText = authMode === "signup" ? "⚡ Register Store" : "⚡ SPEED PLUS ERP";
@@ -863,6 +1227,7 @@
     };
 
     window.unlockOfflineDemo = function() {
+      localStorage.setItem("pos_offline_active", "true");
       currentUser = { id: "offline-merchant", email: "offline@store.local" };
       initSession();
     };
@@ -871,11 +1236,7 @@
       const email = document.getElementById("auth-email").value.trim();
       const password = document.getElementById("auth-password").value.trim();
       if (!email || !password) return showToast("Enter email and password", "warning");
-
-      if (!db) {
-        showToast("Database unreachable. Loaded offline mode.", "warning");
-        return window.unlockOfflineDemo();
-      }
+      if (!db) { showToast("Loaded offline demo mode.", "warning"); return window.unlockOfflineDemo(); }
 
       try {
         if (authMode === "signup") {
@@ -887,6 +1248,7 @@
           if (error) throw error;
           currentUser = data.user;
         }
+        localStorage.removeItem("pos_offline_active");
         await initSession();
       } catch (err) {
         showToast(err.message, "danger");
@@ -915,22 +1277,40 @@
       initRealtimeSync();
     }
 
-    window.logout = function() {
-      if (db) db.auth.signOut();
-      if (realtimeChannel && db) {
-        db.removeChannel(realtimeChannel);
-        realtimeChannel = null;
+    async function restoreSession() {
+      const savedOffline = localStorage.getItem("pos_offline_active");
+      if (savedOffline === "true") {
+        currentUser = { id: "offline-merchant", email: "offline@store.local" };
+        await initSession();
+        return;
       }
-      currentUser = null;
-      cart = [];
-      inventory = [];
-      salesHistory = [];
-      outboxQueue = [];
-      
+
+      if (db) {
+        try {
+          const { data: { session }, error } = await db.auth.getSession();
+          if (session && session.user && !error) {
+            currentUser = session.user;
+            await initSession();
+            return;
+          }
+        } catch (err) {
+          console.warn("Session restore error:", err);
+        }
+      }
+
+      document.getElementById("auth-overlay").style.display = "flex";
+      loadUserLocalStorage();
+      populateSettingsUI();
+      refreshDropdown();
       renderCart();
-      renderInventoryList();
-      renderLedger();
-      
+    }
+
+    window.logout = function() {
+      localStorage.removeItem("pos_offline_active");
+      if (db) db.auth.signOut();
+      if (realtimeChannel && db) { db.removeChannel(realtimeChannel); realtimeChannel = null; }
+      currentUser = null; cart = []; inventory = []; salesHistory = []; outboxQueue = [];
+      renderCart(); renderInventoryList(); renderLedger();
       document.getElementById("btn-admin-tab").style.display = "none";
       document.getElementById("auth-overlay").style.display = "flex";
     };
@@ -940,116 +1320,49 @@
       if (realtimeChannel) db.removeChannel(realtimeChannel);
 
       realtimeChannel = db.channel(`tenant-sync-${currentUser.id}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'subscriptions', filter: `user_id=eq.${currentUser.id}` },
-          async () => {
-            await checkSubscription();
-            showToast("👑 Subscription license status updated", "success");
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'products', filter: `user_id=eq.${currentUser.id}` },
-          async () => {
-            await loadUserDataFromCloud();
-            renderInventoryList();
-            refreshDropdown();
-            showToast("📦 Inventory synced from cloud", "success");
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'store_settings', filter: `user_id=eq.${currentUser.id}` },
-          async () => {
-            await loadUserDataFromCloud();
-            populateSettingsUI();
-            renderCart();
-          }
-        )
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'invoices', filter: `user_id=eq.${currentUser.id}` },
-          async () => {
-            await loadUserDataFromCloud();
-            renderLedger();
-          }
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptions', filter: `user_id=eq.${currentUser.id}` }, async () => {
+          await checkSubscription();
+          showToast("👑 Subscription updated", "success");
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `user_id=eq.${currentUser.id}` }, async () => {
+          await loadUserDataFromCloud(); renderInventoryList(); refreshDropdown();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'store_settings', filter: `user_id=eq.${currentUser.id}` }, async () => {
+          await loadUserDataFromCloud(); populateSettingsUI(); renderCart();
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'invoices', filter: `user_id=eq.${currentUser.id}` }, async () => {
+          await loadUserDataFromCloud(); renderLedger();
+        })
         .subscribe();
     }
 
     async function loadUserDataFromCloud() {
       if (!db || !currentUser || currentUser.id === "offline-merchant") return;
-
       try {
-        const { data: profile, error: profErr } = await db
-          .from("store_settings")
-          .select("*")
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
+        const { data: profile } = await db.from("store_settings").select("*").eq("user_id", currentUser.id).maybeSingle();
+        if (profile) storeConfig = { name: profile.name || storeConfig.name, address: profile.address || storeConfig.address, gstin: profile.gstin || storeConfig.gstin, upi: profile.upi || storeConfig.upi };
 
-        if (!profErr && profile) {
-          storeConfig = {
-            name: profile.name || storeConfig.name,
-            address: profile.address || storeConfig.address,
-            gstin: profile.gstin || storeConfig.gstin,
-            upi: profile.upi || storeConfig.upi
-          };
+        const { data: cloudProducts } = await db.from("products").select("*").eq("user_id", currentUser.id);
+        if (cloudProducts) {
+          inventory = cloudProducts.map(d => ({ barcode: d.barcode.toString().trim(), name: d.name, mrp: parseFloat(d.mrp)||0, rate: parseFloat(d.rate)||0, gst: parseFloat(d.gst)||0, stock: parseInt(d.stock)||0, minStock: parseInt(d.min_stock)||5 }));
         }
 
-        const { data: cloudProducts, error: prodErr } = await db
-          .from("products")
-          .select("*")
-          .eq("user_id", currentUser.id);
-
-        if (!prodErr && cloudProducts) {
-          inventory = cloudProducts.map(d => ({
-            barcode: (d.barcode || "").toString().trim(),
-            name: d.name,
-            mrp: parseFloat(d.mrp) || 0,
-            rate: parseFloat(d.rate) || 0,
-            gst: parseFloat(d.gst) || 0,
-            stock: parseInt(d.stock) || 0,
-            minStock: parseInt(d.min_stock) || 5
-          }));
+        const { data: cloudInvoices } = await db.from("invoices").select("*").eq("user_id", currentUser.id).order("created_at", { ascending: false });
+        if (cloudInvoices) {
+          salesHistory = cloudInvoices.map(inv => ({ invoice_no: inv.invoice_no, customer_name: inv.items?.[0]?.customer_name || "Walk-in", pay_mode: "UPI", taxable: parseFloat(inv.taxable)||0, total_tax: parseFloat(inv.total_tax)||0, grand_total: parseFloat(inv.grand_total)||0, items: inv.items||[], created_at: inv.created_at, synced: true }));
         }
-
-        const { data: cloudInvoices, error: invErr } = await db
-          .from("invoices")
-          .select("*")
-          .eq("user_id", currentUser.id)
-          .order("created_at", { ascending: false });
-
-        if (!invErr && cloudInvoices) {
-          salesHistory = cloudInvoices.map(inv => ({
-            invoice_no: inv.invoice_no,
-            customer_name: inv.items?.[0]?.customer_name || "Walk-in",
-            customer_phone: "N/A",
-            pay_mode: "UPI",
-            taxable: parseFloat(inv.taxable) || 0,
-            total_tax: parseFloat(inv.total_tax) || 0,
-            grand_total: parseFloat(inv.grand_total) || 0,
-            items: inv.items || [],
-            created_at: inv.created_at,
-            synced: true
-          }));
-        }
-
         persistUserStorage();
-      } catch (err) {
-        console.warn("Cloud tenant load warning:", err);
-      }
+      } catch (err) { console.warn("Cloud sync load error:", err); }
     }
 
+    // Direct UPI Checkout
     window.openUpgradeModal = function() {
       document.getElementById("subscription-modal").style.display = "flex";
       document.getElementById("buyer-name").value = storeConfig.name || currentUser?.email || "";
       renderUpgradeCheckout();
     };
     
-    window.closeModal = function() { 
-      document.getElementById("subscription-modal").style.display = "none"; 
-    };
+    window.closeModal = function() { document.getElementById("subscription-modal").style.display = "none"; };
 
     window.selectPlan = function(id, amount, name, days) {
       selectedPlan = { id, amount, name, days };
@@ -1060,279 +1373,95 @@
 
     function renderUpgradeCheckout() {
       document.getElementById("modal-checkout-amt").innerText = `₹${selectedPlan.amount.toFixed(2)}`;
-      
       const upiUri = `upi://pay?pa=${encodeURIComponent(CONFIG.PAYEE_UPI_ID)}&pn=SPEED%20PLUS%20ERP&am=${selectedPlan.amount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(selectedPlan.name)}`;
       document.getElementById("modal-upi-link").setAttribute("href", upiUri);
-
-      const qrContainer = document.getElementById("modal-qrcode");
-      qrContainer.innerHTML = '<canvas id="modal-upi-canvas"></canvas>';
-      
-      const canvas = document.getElementById("modal-upi-canvas");
-      if (window.QRCode && canvas) {
-        QRCode.toCanvas(canvas, upiUri, { width: 140, margin: 1 }, (err) => {
-          if (err) console.error("Modal QR Error:", err);
-        });
-      }
+      document.getElementById("modal-qrcode").innerHTML = '<canvas id="modal-upi-canvas"></canvas>';
+      if (window.QRCode && document.getElementById("modal-upi-canvas")) QRCode.toCanvas(document.getElementById("modal-upi-canvas"), upiUri, { width: 140, margin: 1 });
     }
 
-    // Direct UPI Verification Flow with multi-route fallback
     window.submitWhatsAppConfirmation = async function() {
       const name = document.getElementById("buyer-name").value.trim();
       const utr = document.getElementById("utr-number").value.trim();
       const utrError = document.getElementById("utr-error");
 
-      if (!name) {
-        showToast("Please enter your name or business name", "warning");
-        document.getElementById("buyer-name").focus();
-        return;
-      }
-
-      if (!/^\d{12}$/.test(utr)) {
-        utrError.style.display = "block";
-        document.getElementById("utr-number").focus();
-        return;
-      }
+      if (!name) { showToast("Enter your name", "warning"); document.getElementById("buyer-name").focus(); return; }
+      if (!/^\d{12}$/.test(utr)) { utrError.style.display = "block"; document.getElementById("utr-number").focus(); return; }
       utrError.style.display = "none";
 
-      const formattedName = name || currentUser?.email || "Merchant";
-      const message = `*Subscription Payment Verification - SPEED PLUS ERP*\n\n` +
-                      `👤 *Business/Name:* ${formattedName}\n` +
-                      `📧 *Email:* ${currentUser?.email || "N/A"}\n` +
-                      `📦 *Plan Requested:* ${selectedPlan.name} (₹${selectedPlan.amount})\n` +
-                      `🔢 *12-Digit UTR:* ${utr}\n\n` +
-                      `*Note:* Payment proof submitted. Please verify bank credit and activate license.`;
-
-      const encodedMsg = encodeURIComponent(message);
-      const waDirectUrl = `https://wa.me/${CONFIG.ADMIN_WHATSAPP}?text=${encodedMsg}`;
-      const waAppScheme = `whatsapp://send?phone=${CONFIG.ADMIN_WHATSAPP}&text=${encodedMsg}`;
-
+      const msg = `*Subscription Verification - SPEED PLUS ERP*\n\n👤 *Name:* ${name}\n📧 *Email:* ${currentUser?.email || "N/A"}\n📦 *Plan:* ${selectedPlan.name} (₹${selectedPlan.amount})\n🔢 *UTR:* ${utr}\n\n*Note:* Payment proof submitted. Please verify.`;
+      const encodedMsg = encodeURIComponent(msg);
+      
       const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       if (isMobile) {
-        window.location.href = waAppScheme;
-        setTimeout(() => {
-          window.open(waDirectUrl, "_blank", "noopener,noreferrer");
-        }, 500);
+        window.location.href = `whatsapp://send?phone=${CONFIG.ADMIN_WHATSAPP}&text=${encodedMsg}`;
+        setTimeout(() => window.open(`https://wa.me/${CONFIG.ADMIN_WHATSAPP}?text=${encodedMsg}`, "_blank", "noopener,noreferrer"), 500);
       } else {
-        const newTab = window.open(waDirectUrl, "_blank", "noopener,noreferrer");
-        if (!newTab || newTab.closed || typeof newTab.closed === "undefined") {
-          window.location.assign(waDirectUrl);
-        }
+        const t = window.open(`https://wa.me/${CONFIG.ADMIN_WHATSAPP}?text=${encodedMsg}`, "_blank", "noopener,noreferrer");
+        if (!t || t.closed) window.location.assign(`https://wa.me/${CONFIG.ADMIN_WHATSAPP}?text=${encodedMsg}`);
       }
 
       if (db && currentUser && currentUser.id !== "offline-merchant") {
-        try {
-          await db.from("subscriptions").upsert({
-            user_id: currentUser.id,
-            status: "pending_verification",
-            plan_name: selectedPlan.name,
-            plan_amount: selectedPlan.amount,
-            razorpay_payment_id: `MANUAL-UPI-${utr}`,
-            updated_at: new Date().toISOString()
-          }, { onConflict: "user_id" });
-        } catch (e) {
-          console.warn("Subscription pending log error:", e);
-        }
+        await db.from("subscriptions").upsert({ user_id: currentUser.id, status: "pending_verification", plan_name: selectedPlan.name, plan_amount: selectedPlan.amount, razorpay_payment_id: `MANUAL-UPI-${utr}`, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
       }
 
-      showToast("UTR submitted! Your license will be activated upon admin bank verification.", "warning");
-      closeModal();
-      checkSubscription();
-    };
-
-    // Super-Admin Plan Activation Window Logic
-    window.openAdminActivationModal = function(userId, email, currentStatus, utrRef, requestedPlan) {
-      document.getElementById("adm-target-userid").value = userId;
-      document.getElementById("adm-target-email").innerText = email;
-      document.getElementById("adm-target-status").innerText = currentStatus || "UNKNOWN";
-      document.getElementById("adm-target-utr").innerText = utrRef || "No UTR Attached";
-
-      if ((requestedPlan || '').toLowerCase().includes('annual') || (requestedPlan || '').toLowerCase().includes('yearly')) {
-        setAdminPlanChoice('yearly', 365, 4999, 'Annual Business Plan');
-      } else {
-        setAdminPlanChoice('monthly', 30, 499, 'Pro Monthly Plan');
-      }
-
-      document.getElementById("admin-activation-modal").style.display = "flex";
-    };
-
-    window.closeAdminActivationModal = function() {
-      document.getElementById("admin-activation-modal").style.display = "none";
-    };
-
-    window.setAdminPlanChoice = function(type, days, amount, name) {
-      adminSelectedPlan = { type, days, amount, planName: name };
-      
-      document.getElementById("adm-btn-monthly").style.borderColor = (type === 'monthly') ? 'var(--accent)' : '#334155';
-      document.getElementById("adm-btn-yearly").style.borderColor = (type === 'yearly') ? 'var(--accent)' : '#334155';
-      
-      document.getElementById("adm-input-days").value = days;
-      document.getElementById("adm-input-amount").value = amount;
-    };
-
-    window.customPlanChanged = function() {
-      const days = parseInt(document.getElementById("adm-input-days").value) || 30;
-      if (days === 365) {
-        adminSelectedPlan.type = 'yearly';
-        adminSelectedPlan.planName = 'Annual Business Plan';
-        document.getElementById("adm-btn-monthly").style.borderColor = '#334155';
-        document.getElementById("adm-btn-yearly").style.borderColor = 'var(--accent)';
-      } else if (days === 30) {
-        adminSelectedPlan.type = 'monthly';
-        adminSelectedPlan.planName = 'Pro Monthly Plan';
-        document.getElementById("adm-btn-monthly").style.borderColor = 'var(--accent)';
-        document.getElementById("adm-btn-yearly").style.borderColor = '#334155';
-      } else {
-        adminSelectedPlan.type = 'custom';
-        adminSelectedPlan.planName = `Custom Plan (${days} Days)`;
-        document.getElementById("adm-btn-monthly").style.borderColor = '#334155';
-        document.getElementById("adm-btn-yearly").style.borderColor = '#334155';
-      }
-    };
-
-    window.commitAdminSubscriptionActivation = async function() {
-      const userId = document.getElementById("adm-target-userid").value;
-      const days = parseInt(document.getElementById("adm-input-days").value) || 30;
-      const amount = parseFloat(document.getElementById("adm-input-amount").value) || 0;
-      const utr = document.getElementById("adm-target-utr").innerText;
-
-      if (!userId) return showToast("Invalid merchant selection", "danger");
-      if (!db) return showToast("Database connection offline", "danger");
-
-      try {
-        const exp = new Date(Date.now() + days * 86400000);
-        
-        const { error } = await db.from("subscriptions").upsert({
-          user_id: userId,
-          status: "active",
-          plan_name: adminSelectedPlan.planName,
-          plan_amount: amount,
-          current_period_end: exp.toISOString(),
-          razorpay_payment_id: utr.includes("N/A") ? `ADMIN-ACT-${Date.now()}` : utr,
-          updated_at: new Date().toISOString()
-        }, { onConflict: "user_id" });
-
-        if (error) throw error;
-
-        showToast(`Successfully activated ${adminSelectedPlan.planName} (+${days} days)!`, "success");
-        closeAdminActivationModal();
-        fetchAdminMerchantData();
-      } catch (err) {
-        showToast(`Activation Error: ${err.message}`, "danger");
-      }
+      showToast("UTR submitted! Awaiting review.", "warning");
+      closeModal(); checkSubscription();
     };
 
     function formatTimeRemaining(ms) {
       if (ms <= 0) return "Expired";
       const totalHours = Math.floor(ms / (1000 * 60 * 60));
-      const days = Math.floor(totalHours / 24);
-      const hours = totalHours % 24;
-
-      if (days > 0) return `${days}d ${hours}h left`;
-      return `${hours} hours left`;
+      return totalHours > 24 ? `${Math.floor(totalHours / 24)}d ${totalHours % 24}h left` : `${totalHours} hours left`;
     }
 
     async function checkSubscription() {
-      const badge = document.getElementById("nav-plan-badge");
-      const daysText = document.getElementById("nav-plan-days");
-      const setPlanTitle = document.getElementById("set-plan-title");
-      const setPlanBadge = document.getElementById("set-plan-badge");
-      const setPlanExpiry = document.getElementById("set-plan-expiry");
+      const badge = document.getElementById("nav-plan-badge"); const daysText = document.getElementById("nav-plan-days");
+      const setPlanTitle = document.getElementById("set-plan-title"); const setPlanBadge = document.getElementById("set-plan-badge");
       const setPlanRemaining = document.getElementById("set-plan-remaining");
 
       if (!db || !currentUser || currentUser.id === "offline-merchant") {
-        badge.innerText = "Standalone";
-        badge.style.background = "#475569";
-        daysText.innerText = "Offline Mode";
-        setPlanTitle.innerText = "Plan: Offline Standalone";
-        setPlanRemaining.innerText = "Remaining Time: Unlimited Local";
-        return true;
+        badge.innerText = "Standalone"; badge.style.background = "#475569"; daysText.innerText = "Offline Mode";
+        setPlanTitle.innerText = "Plan: Standalone"; setPlanRemaining.innerText = "Remaining: Unlimited Local"; return true;
       }
 
       try {
-        const { data, error } = await db.from("subscriptions").select("*").eq("user_id", currentUser.id).maybeSingle();
-        if (error) console.warn(error);
-
+        const { data } = await db.from("subscriptions").select("*").eq("user_id", currentUser.id).maybeSingle();
         const now = new Date();
 
         if (data) {
-          const planName = data.plan_name || "7-Day Free Trial";
-          const trialEnds = new Date(data.trial_ends_at);
-          const periodEnds = data.current_period_end ? new Date(data.current_period_end) : null;
+          const pEnds = data.current_period_end ? new Date(data.current_period_end) : null;
+          const tEnds = new Date(data.trial_ends_at);
+          const activeExp = (data.status === "active" && pEnds) ? pEnds : tEnds;
+          const remainingMs = activeExp.getTime() - now.getTime();
           
-          const activeExpiry = (data.status === "active" && periodEnds) ? periodEnds : trialEnds;
-          const remainingMs = activeExpiry.getTime() - now.getTime();
-          const isTrialActive = data.status === "trialing" && remainingMs > 0;
-          const isPaidActive = data.status === "active" && remainingMs > 0;
-          const isPending = data.status === "pending_verification";
-
-          setPlanTitle.innerText = `Plan: ${planName}`;
-          setPlanExpiry.innerText = `Expires on: ${activeExpiry.toLocaleString('en-IN')}`;
-
-          if (isPaidActive) {
-            badge.innerText = "👑 PRO";
-            badge.style.background = "var(--success)";
-            daysText.innerText = formatTimeRemaining(remainingMs);
-
-            setPlanBadge.innerText = "Active (Paid)";
-            setPlanBadge.style.background = "var(--success)";
-            setPlanRemaining.innerText = `Remaining Time: ${formatTimeRemaining(remainingMs)}`;
-            return true;
-          } else if (isPending) {
-            badge.innerText = "⏳ Under Review";
-            badge.style.background = "var(--warning)";
-            daysText.innerText = "Verifying UTR";
-
-            setPlanBadge.innerText = "Pending Verification";
-            setPlanBadge.style.background = "var(--warning)";
-            setPlanRemaining.innerText = "Payment submitted. Awaiting admin bank clearance.";
-            return false;
-          } else if (isTrialActive) {
-            badge.innerText = "⏳ Trial";
-            badge.style.background = "var(--warning)";
-            daysText.innerText = formatTimeRemaining(remainingMs);
-
-            setPlanBadge.innerText = "Trial Active";
-            setPlanBadge.style.background = "var(--warning)";
-            setPlanRemaining.innerText = `Remaining Time: ${formatTimeRemaining(remainingMs)}`;
-            return true;
+          setPlanTitle.innerText = `Plan: ${data.plan_name || "Trial"}`;
+          
+          if (data.status === "active" && remainingMs > 0) {
+            badge.innerText = "👑 PRO"; badge.style.background = "var(--success)"; daysText.innerText = formatTimeRemaining(remainingMs);
+            setPlanBadge.innerText = "Active (Paid)"; setPlanBadge.style.background = "var(--success)"; setPlanRemaining.innerText = `Remaining: ${formatTimeRemaining(remainingMs)}`; return true;
+          } else if (data.status === "pending_verification") {
+            badge.innerText = "⏳ Review"; badge.style.background = "var(--warning)"; daysText.innerText = "Verifying";
+            setPlanBadge.innerText = "Pending"; setPlanBadge.style.background = "var(--warning)"; setPlanRemaining.innerText = "Awaiting bank clearance."; return false;
+          } else if (data.status === "trialing" && remainingMs > 0) {
+            badge.innerText = "⏳ Trial"; badge.style.background = "var(--warning)"; daysText.innerText = formatTimeRemaining(remainingMs);
+            setPlanBadge.innerText = "Trial Active"; setPlanBadge.style.background = "var(--warning)"; setPlanRemaining.innerText = `Remaining: ${formatTimeRemaining(remainingMs)}`; return true;
           } else {
-            badge.innerText = "❌ Expired";
-            badge.style.background = "var(--danger)";
-            daysText.innerText = "Upgrade Now";
-
-            setPlanBadge.innerText = "Expired";
-            setPlanBadge.style.background = "var(--danger)";
-            setPlanRemaining.innerText = "Remaining Time: 0 days (Expired)";
-            return false;
+            badge.innerText = "❌ Expired"; badge.style.background = "var(--danger)"; daysText.innerText = "Upgrade";
+            setPlanBadge.innerText = "Expired"; setPlanBadge.style.background = "var(--danger)"; setPlanRemaining.innerText = "Expired"; return false;
           }
         } else {
-          const expiry = new Date(Date.now() + 7 * 86400000);
-          await db.from("subscriptions").insert([{
-            user_id: currentUser.id,
-            status: "trialing",
-            plan_name: "7-Day Free Trial",
-            trial_starts_at: now.toISOString(),
-            trial_ends_at: expiry.toISOString()
-          }]);
-          badge.innerText = "⏳ Trial";
-          daysText.innerText = "7 days left";
-          return true;
+          await db.from("subscriptions").insert([{ user_id: currentUser.id, status: "trialing", plan_name: "7-Day Free Trial", trial_starts_at: now.toISOString(), trial_ends_at: new Date(now.getTime() + 7*86400000).toISOString() }]);
+          badge.innerText = "⏳ Trial"; daysText.innerText = "7 days left"; return true;
         }
-      } catch (e) {
-        console.error("Subscription verify error:", e);
-        return true;
-      }
+      } catch (e) { return true; }
     }
 
+    // POS & Cart UI
     window.switchView = function(view) {
       document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
       document.querySelectorAll(".nav-tab-btn").forEach(b => b.classList.remove("active"));
-      
-      const targetPanel = document.getElementById(`${view}-view`);
-      if (targetPanel) targetPanel.classList.add("active");
-      
-      const tabBtn = document.getElementById(view === 'admin' ? "btn-admin-tab" : `tab-${view}`);
-      if (tabBtn) tabBtn.classList.add("active");
+      document.getElementById(`${view}-view`).classList.add("active");
+      document.getElementById(view === 'admin' ? "btn-admin-tab" : `tab-${view}`).classList.add("active");
 
       if (view === 'dashboard') renderLedger();
       if (view === 'inventory') renderInventoryList();
@@ -1341,12 +1470,9 @@
     };
 
     function refreshDropdown() {
-      const select = document.getElementById("pos-product-dropdown");
-      if (!select) return;
-      select.innerHTML = '<option value="">-- Choose Item --</option>';
-      inventory.forEach(p => {
-        select.innerHTML += `<option value="${p.barcode}">${p.name} (Stock: ${p.stock}) — ₹${p.rate}</option>`;
-      });
+      const sel = document.getElementById("pos-product-dropdown"); if (!sel) return;
+      sel.innerHTML = '<option value="">-- Choose Item --</option>';
+      inventory.forEach(p => sel.innerHTML += `<option value="${p.barcode}">${p.name} (Stock: ${p.stock}) — ₹${p.rate}</option>`);
     }
 
     window.handleManualSearch = function() {
@@ -1357,644 +1483,239 @@
     };
 
     window.lookupAndAdd = function(barcode) {
-      const cleanCode = (barcode || "").toString().trim().toLowerCase();
-      const prod = inventory.find(p => (p.barcode || "").toString().trim().toLowerCase() === cleanCode);
-      if (!prod) return showToast("SKU not found in catalog", "warning");
-      if (prod.stock <= 0) return showToast("Item out of stock", "danger");
+      const code = (barcode||"").toString().trim().toLowerCase();
+      const prod = inventory.find(p => p.barcode.toString().toLowerCase() === code);
+      if (!prod) return showToast("SKU not found", "warning");
+      if (prod.stock <= 0) return showToast("Out of stock", "danger");
 
-      const existing = cart.find(c => (c.barcode || "").toString().trim().toLowerCase() === cleanCode);
-      if (existing) {
-        if (existing.qty + 1 > prod.stock) return showToast("Cannot exceed stock limit", "warning");
-        existing.qty++;
-      } else {
-        cart.push({ ...prod, qty: 1 });
-      }
+      const ext = cart.find(c => c.barcode.toString().toLowerCase() === code);
+      if (ext) {
+        if (ext.qty + 1 > prod.stock) return showToast("Stock limit reached", "warning");
+        ext.qty++;
+      } else { cart.push({ ...prod, qty: 1 }); }
       renderCart();
     };
 
     window.modifyQty = function(idx, delta) {
-      const line = cart[idx];
-      const cleanCode = (line.barcode || "").toString().trim().toLowerCase();
-      const prod = inventory.find(p => (p.barcode || "").toString().trim().toLowerCase() === cleanCode);
-      if (delta > 0 && prod && (line.qty + delta > prod.stock)) return showToast("Stock limit reached", "warning");
-      line.qty += delta;
-      if (line.qty <= 0) cart.splice(idx, 1);
-      renderCart();
+      const line = cart[idx]; const prod = inventory.find(p => p.barcode === line.barcode);
+      if (delta > 0 && prod && (line.qty + delta > prod.stock)) return showToast("Stock limit", "warning");
+      line.qty += delta; if (line.qty <= 0) cart.splice(idx, 1); renderCart();
     };
 
     function renderCart() {
-      const tbody = document.getElementById("pos-cart-tbody");
-      const billTbody = document.getElementById("bill-receipt-items");
-      if (!tbody || !billTbody) return;
-      
-      tbody.innerHTML = "";
-      billTbody.innerHTML = "";
-
-      let taxable = 0, totalGst = 0, grandTotal = 0;
+      const tbody = document.getElementById("pos-cart-tbody"); const bBody = document.getElementById("bill-receipt-items");
+      if (!tbody) return; tbody.innerHTML = ""; bBody.innerHTML = "";
+      let tax = 0, gst = 0, grand = 0;
 
       cart.forEach((item, idx) => {
-        const itemTaxable = item.rate * item.qty;
-        const itemGst = itemTaxable * (item.gst / 100);
-        const itemTotal = itemTaxable + itemGst;
-
-        taxable += itemTaxable;
-        totalGst += itemGst;
-        grandTotal += itemTotal;
-
-        tbody.innerHTML += `
-          <tr>
-            <td><strong>${item.barcode}</strong></td>
-            <td>${item.name}</td>
-            <td>₹${item.rate.toFixed(2)}</td>
-            <td>${item.gst}%</td>
-            <td>
-              <button onclick="modifyQty(${idx}, -1)" style="padding: 1px 6px;">-</button>
-              <span style="font-weight: bold; margin: 0 4px;">${item.qty}</span>
-              <button onclick="modifyQty(${idx}, 1)" style="padding: 1px 6px;">+</button>
-            </td>
-            <td>₹${itemTotal.toFixed(2)}</td>
-            <td><button onclick="cart.splice(${idx}, 1); renderCart();" style="border:none; color:red; cursor:pointer;">✕</button></td>
-          </tr>
-        `;
-
-        billTbody.innerHTML += `
-          <tr>
-            <td>${item.name}</td>
-            <td style="text-align: center;">${item.qty}</td>
-            <td style="text-align: right;">${item.rate.toFixed(2)}</td>
-            <td style="text-align: right;">${itemTotal.toFixed(2)}</td>
-          </tr>
-        `;
+        const t = item.rate * item.qty; const g = t * (item.gst / 100); const gr = t + g;
+        tax += t; gst += g; grand += gr;
+        tbody.innerHTML += `<tr><td><strong>${item.barcode}</strong></td><td>${item.name}</td><td>₹${item.rate.toFixed(2)}</td><td>${item.gst}%</td><td><button onclick="modifyQty(${idx}, -1)" style="padding:1px 6px">-</button> <span style="font-weight:bold">${item.qty}</span> <button onclick="modifyQty(${idx}, 1)" style="padding:1px 6px">+</button></td><td>₹${gr.toFixed(2)}</td><td><button onclick="cart.splice(${idx}, 1); renderCart()" style="border:none; color:red; cursor:pointer;">✕</button></td></tr>`;
+        bBody.innerHTML += `<tr><td>${item.name}</td><td style="text-align:center">${item.qty}</td><td style="text-align:right">${item.rate.toFixed(2)}</td><td style="text-align:right">${gr.toFixed(2)}</td></tr>`;
       });
 
-      document.getElementById("txt-taxable").innerText = taxable.toFixed(2);
-      document.getElementById("txt-cgst").innerText = (totalGst / 2).toFixed(2);
-      document.getElementById("txt-sgst").innerText = (totalGst / 2).toFixed(2);
-      document.getElementById("txt-total-gst").innerText = totalGst.toFixed(2);
-      document.getElementById("txt-grand").innerText = grandTotal.toFixed(2);
-
-      document.getElementById("bill-store-name").innerText = storeConfig.name;
-      document.getElementById("bill-store-address").innerText = storeConfig.address;
-      document.getElementById("bill-gstin").innerText = storeConfig.gstin;
-      document.getElementById("bill-invoice-no").innerText = activeInvoiceNo;
-      document.getElementById("bill-timestamp").innerText = new Date().toLocaleString("en-IN");
-      document.getElementById("bill-taxable").innerText = taxable.toFixed(2);
-      document.getElementById("bill-tax").innerText = totalGst.toFixed(2);
-      document.getElementById("bill-grand").innerText = grandTotal.toFixed(2);
-
-      const upiLink = `upi://pay?pa=${storeConfig.upi}&pn=${encodeURIComponent(storeConfig.name)}&am=${grandTotal.toFixed(2)}&cu=INR&tn=Bill-${activeInvoiceNo}`;
+      document.getElementById("txt-taxable").innerText = tax.toFixed(2); document.getElementById("txt-total-gst").innerText = gst.toFixed(2); document.getElementById("txt-grand").innerText = grand.toFixed(2);
       
-      const billQr = document.getElementById("bill-upi-qr");
-      if (window.QRCode && billQr) {
-        QRCode.toCanvas(billQr, upiLink, { width: 84, margin: 1 }, () => {});
-      }
-      if (window.JsBarcode) {
-        JsBarcode("#bill-barcode", activeInvoiceNo, { format: "CODE128", width: 1.1, height: 20, displayValue: false });
-      }
+      document.getElementById("bill-store-name").innerText = storeConfig.name; document.getElementById("bill-store-address").innerText = storeConfig.address; document.getElementById("bill-gstin").innerText = storeConfig.gstin; document.getElementById("bill-invoice-no").innerText = activeInvoiceNo; document.getElementById("bill-timestamp").innerText = new Date().toLocaleString(); document.getElementById("bill-taxable").innerText = tax.toFixed(2); document.getElementById("bill-tax").innerText = gst.toFixed(2); document.getElementById("bill-grand").innerText = grand.toFixed(2);
+
+      const uri = `upi://pay?pa=${storeConfig.upi}&pn=${encodeURIComponent(storeConfig.name)}&am=${grand.toFixed(2)}&cu=INR&tn=Bill-${activeInvoiceNo}`;
+      if (window.QRCode && document.getElementById("bill-upi-qr")) QRCode.toCanvas(document.getElementById("bill-upi-qr"), uri, { width: 84, margin: 1 });
+      if (window.JsBarcode) JsBarcode("#bill-barcode", activeInvoiceNo, { format: "CODE128", width: 1.1, height: 20, displayValue: false });
     }
 
     window.settleAndPrint = async function() {
       if (cart.length === 0) return showToast("Cart is empty!", "warning");
+      if (!(await checkSubscription())) { openUpgradeModal(); return showToast("License expired/pending.", "danger"); }
 
-      const hasActiveSub = await checkSubscription();
-      if (!hasActiveSub) {
-        openUpgradeModal();
-        return showToast("Subscription expired or verification pending. Upgrade to bill.", "danger");
-      }
-
-      cart.forEach(c => {
-        const item = inventory.find(i => (i.barcode || "").toString().trim().toLowerCase() === (c.barcode || "").toString().trim().toLowerCase());
-        if (item) {
-          item.stock = Math.max(0, item.stock - c.qty);
-        }
-      });
-
-      const invoiceRecord = {
-        invoice_no: activeInvoiceNo,
-        customer_name: document.getElementById("cust-name").value.trim() || "Walk-in",
-        customer_phone: document.getElementById("cust-phone").value.trim() || "N/A",
-        pay_mode: document.getElementById("pos-pay-mode").value,
-        taxable: parseFloat(document.getElementById("txt-taxable").innerText),
-        total_tax: parseFloat(document.getElementById("txt-total-gst").innerText),
-        grand_total: parseFloat(document.getElementById("txt-grand").innerText),
-        items: [...cart],
-        created_at: new Date().toISOString(),
-        synced: false
-      };
-
-      salesHistory.unshift(invoiceRecord);
-      outboxQueue.push(invoiceRecord);
-      persistUserStorage();
-
-      window.print();
-      showToast("Invoice processed & printed!", "success");
-
-      cart = [];
-      activeInvoiceNo = generateInvoiceNumber();
-      document.getElementById("cust-name").value = "";
-      document.getElementById("cust-phone").value = "";
+      cart.forEach(c => { const i = inventory.find(x => x.barcode === c.barcode); if (i) i.stock = Math.max(0, i.stock - c.qty); });
+      const rec = { invoice_no: activeInvoiceNo, customer_name: document.getElementById("cust-name").value.trim() || "Walk-in", pay_mode: document.getElementById("pos-pay-mode").value, taxable: parseFloat(document.getElementById("txt-taxable").innerText), total_tax: parseFloat(document.getElementById("txt-total-gst").innerText), grand_total: parseFloat(document.getElementById("txt-grand").innerText), items: [...cart], created_at: new Date().toISOString(), synced: false };
       
-      renderCart();
-      renderInventoryList();
-      refreshDropdown();
-      flushOutbox();
+      salesHistory.unshift(rec); outboxQueue.push(rec); persistUserStorage();
+
+      document.body.className = "print-receipt"; window.print(); setTimeout(() => document.body.className = "", 500);
+
+      cart = []; activeInvoiceNo = generateInvoiceNumber(); document.getElementById("cust-name").value = "";
+      renderCart(); renderInventoryList(); refreshDropdown(); flushOutbox();
     };
 
+    // Outbox & Inventory
     let isSyncing = false;
-
     async function flushOutbox() {
-      if (isSyncing) return;
-      const syncBadge = document.getElementById("nav-sync-indicator");
-
-      if (!navigator.onLine) {
-        if (syncBadge) {
-          syncBadge.innerText = "🟠 Network Offline";
-          syncBadge.style.background = "#64748b";
-        }
-        return;
-      }
-
-      if (!db || !currentUser || currentUser.id === "offline-merchant") {
-        if (syncBadge) {
-          syncBadge.innerText = outboxQueue.length > 0 ? `⚠️ Local (${outboxQueue.length})` : "🟠 Offline Mode";
-          syncBadge.style.background = "#64748b";
-        }
-        return;
-      }
-
-      const { data: { session } } = await db.auth.getSession();
-      if (!session) return;
-
-      if (!outboxQueue || outboxQueue.length === 0) {
-        if (syncBadge) {
-          syncBadge.innerText = "🟢 Cloud Synced";
-          syncBadge.style.background = "var(--success)";
-        }
-        renderLedger();
-        return;
-      }
+      if (isSyncing || !navigator.onLine) return;
+      if (!db || !currentUser || currentUser.id === "offline-merchant") return;
+      const { data: { session } } = await db.auth.getSession(); if (!session) return;
+      if (outboxQueue.length === 0) { renderLedger(); return; }
 
       isSyncing = true;
-      if (syncBadge) {
-        syncBadge.innerText = `🔄 Syncing (${outboxQueue.length})...`;
-        syncBadge.style.background = "var(--secondary)";
-      }
-
-      const queueToProcess = [...outboxQueue];
-      const remainingQueue = [];
-      let syncedCount = 0;
-
-      for (let i = 0; i < queueToProcess.length; i++) {
-        const bill = queueToProcess[i];
+      const q = [...outboxQueue]; const rem = []; let sCount = 0;
+      for (let i=0; i<q.length; i++) {
         try {
-          const { error: invError } = await db.from("invoices").insert([{
-            user_id: session.user.id,
-            invoice_no: bill.invoice_no,
-            taxable: bill.taxable,
-            total_tax: bill.total_tax,
-            grand_total: bill.grand_total,
-            items: bill.items,
-            created_at: bill.created_at
-          }]);
-
-          if (invError) throw new Error(invError.message);
-
-          if (Array.isArray(bill.items) && bill.items.length > 0) {
-            for (const item of bill.items) {
-              const currentLocal = inventory.find(inv => (inv.barcode || "").toString().trim().toLowerCase() === (item.barcode || "").toString().trim().toLowerCase());
-              if (currentLocal) {
-                await db.from("products").update({
-                  stock: currentLocal.stock,
-                  updated_at: new Date().toISOString()
-                }).eq("barcode", item.barcode).eq("user_id", session.user.id);
-              }
-            }
+          const { error } = await db.from("invoices").insert([{ user_id: session.user.id, invoice_no: q[i].invoice_no, taxable: q[i].taxable, total_tax: q[i].total_tax, grand_total: q[i].grand_total, items: q[i].items, created_at: q[i].created_at }]);
+          if (error) throw error;
+          
+          for (const it of q[i].items) {
+            const loc = inventory.find(inv => inv.barcode === it.barcode);
+            if (loc) await db.from("products").update({ stock: loc.stock }).eq("barcode", it.barcode).eq("user_id", session.user.id);
           }
-
-          const localRecord = salesHistory.find(s => s.invoice_no === bill.invoice_no);
-          if (localRecord) localRecord.synced = true;
-          syncedCount++;
-
-          await new Promise(resolve => setTimeout(resolve, 15));
-
-        } catch (err) {
-          console.error(`Sync failed for invoice ${bill.invoice_no}:`, err);
-          remainingQueue.push(bill);
-        }
+          const lr = salesHistory.find(s => s.invoice_no === q[i].invoice_no); if (lr) lr.synced = true; sCount++;
+        } catch (e) { rem.push(q[i]); }
       }
-
-      outboxQueue = remainingQueue;
-      persistUserStorage();
-
-      if (syncedCount > 0) showToast(`Synced ${syncedCount} invoice(s) to cloud!`, "success");
-      if (remainingQueue.length > 0) showToast(`${remainingQueue.length} invoice(s) pending in outbox.`, "warning");
-
-      if (syncBadge) {
-        syncBadge.innerText = outboxQueue.length === 0 ? "🟢 Cloud Synced" : `⚠️ Outbox (${outboxQueue.length})`;
-        syncBadge.style.background = outboxQueue.length === 0 ? "var(--success)" : "var(--warning)";
-      }
-
-      renderLedger();
-      isSyncing = false;
+      outboxQueue = rem; persistUserStorage(); renderLedger(); isSyncing = false;
     }
 
-    window.addEventListener("online", flushOutbox);
-    window.triggerManualSync = function() { flushOutbox(); };
+    window.addEventListener("online", flushOutbox); window.triggerManualSync = () => flushOutbox();
 
     window.resetInventoryForm = function() {
-      document.getElementById("inv-original-code").value = "";
-      document.getElementById("inv-name").value = "";
-      document.getElementById("inv-code").value = "";
-      document.getElementById("inv-mrp").value = "0.00";
-      document.getElementById("inv-rate").value = "";
-      document.getElementById("inv-gst").value = "5";
-      document.getElementById("inv-stock").value = "50";
-      document.getElementById("inv-min-stock").value = "10";
-      document.getElementById("inv-form-title").innerText = "Add Product";
-      document.getElementById("btn-save-inv").innerText = "💾 Commit SKU";
+      ["inv-original-code", "inv-name", "inv-code", "inv-rate"].forEach(id => document.getElementById(id).value = "");
+      document.getElementById("inv-mrp").value = "0.00"; document.getElementById("inv-gst").value = "5"; document.getElementById("inv-stock").value = "50"; document.getElementById("inv-min-stock").value = "10";
+      document.getElementById("inv-form-title").innerText = "Add Product"; document.getElementById("btn-save-inv").innerText = "💾 Commit SKU";
     };
 
     window.renderInventoryList = function(filter = "") {
-      const tbody = document.getElementById("inventory-table-body");
-      if (!tbody) return;
-      tbody.innerHTML = "";
-      
-      const cleanFilter = (filter || "").toString().trim().toLowerCase();
-      const items = inventory.filter(i => 
-        (i.name || "").toLowerCase().includes(cleanFilter) || 
-        (i.barcode || "").toString().toLowerCase().includes(cleanFilter)
-      );
+      const tb = document.getElementById("inventory-table-body"); if (!tb) return;
+      const f = filter.toLowerCase(); const items = inventory.filter(i => i.name.toLowerCase().includes(f) || i.barcode.toString().includes(f));
+      tb.innerHTML = items.length === 0 ? `<tr><td colspan="7" style="text-align:center; color:#888;">No catalog items.</td></tr>` : items.map(p => {
+        const bg = p.stock <= 0 ? `<span class="stock-badge stock-out">Out</span>` : p.stock <= p.minStock ? `<span class="stock-badge stock-low">Low (${p.stock})</span>` : `<span class="stock-badge stock-ok">${p.stock}</span>`;
+        return `<tr><td><strong>${p.barcode}</strong></td><td>${p.name}</td><td>₹${p.rate.toFixed(2)}</td><td>${p.gst}%</td><td>${bg}</td><td>${p.stock>0?'Active':'Depleted'}</td>
+        <td>
+          <button onclick="openBarcodeLabelModal('${p.barcode}')" title="Print Label" style="cursor:pointer; border:none; background:none;">🏷️</button>
+          <button onclick="editProduct('${p.barcode}')" title="Edit" style="cursor:pointer; border:none; background:none; margin-left:4px;">✏️</button>
+          <button onclick="deleteProduct('${p.barcode}')" title="Delete" style="cursor:pointer; border:none; background:none; color:red; margin-left:4px;">🗑️</button>
+        </td></tr>`;
+      }).join('');
+    };
 
-      if (items.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #888;">No products found in catalog.</td></tr>`;
-        return;
-      }
-
-      items.forEach(p => {
-        const badge = p.stock <= 0 ? `<span class="stock-badge stock-out">Out</span>` :
-          p.stock <= p.minStock ? `<span class="stock-badge stock-low">Low (${p.stock})</span>` :
-          `<span class="stock-badge stock-ok">${p.stock}</span>`;
-
-        tbody.innerHTML += `
-          <tr>
-            <td><strong>${p.barcode}</strong></td>
-            <td>${p.name}</td>
-            <td>₹${p.rate.toFixed(2)}</td>
-            <td>${p.gst}%</td>
-            <td>${badge}</td>
-            <td>${p.stock > 0 ? "Active" : "Depleted"}</td>
-            <td>
-              <button onclick="editProduct('${p.barcode}')" title="Edit" style="cursor:pointer; border:none; background:none;">✏️</button>
-              <button onclick="deleteProduct('${p.barcode}')" title="Delete" style="cursor:pointer; border:none; background:none; color:red; margin-left: 6px;">🗑️</button>
-            </td>
-          </tr>
-        `;
-      });
+    // Product Label Printing
+    window.openBarcodeLabelModal = function(barcode) {
+      const p = inventory.find(i => i.barcode === barcode); if (!p) return;
+      document.getElementById("lbl-store").innerText = storeConfig.name || "STORE";
+      document.getElementById("lbl-name").innerText = p.name;
+      document.getElementById("lbl-mrp").innerText = (p.mrp || p.rate).toFixed(2);
+      document.getElementById("lbl-rate").innerText = p.rate.toFixed(2);
+      JsBarcode("#label-barcode-svg", p.barcode, { format: "CODE128", width: 1.5, height: 32, displayValue: true, fontSize: 10, margin: 2 });
+      document.getElementById("label-print-modal").style.display = "flex";
+    };
+    window.closeLabelModal = function() { document.getElementById("label-print-modal").style.display = "none"; };
+    window.printBarcodeLabel = function() {
+      document.body.className = "print-label"; window.print(); setTimeout(() => document.body.className = "", 500);
     };
 
     window.saveProduct = async function() {
-      const originalCode = document.getElementById("inv-original-code").value.trim();
-      const name = document.getElementById("inv-name").value.trim();
-      const code = document.getElementById("inv-code").value.trim();
-      const mrp = parseFloat(document.getElementById("inv-mrp").value) || 0;
-      const rate = parseFloat(document.getElementById("inv-rate").value) || 0;
-      const gst = parseFloat(document.getElementById("inv-gst").value) || 0;
-      const stock = parseInt(document.getElementById("inv-stock").value) || 0;
-      const minStock = parseInt(document.getElementById("inv-min-stock").value) || 5;
-
-      if (!name) return showToast("Enter product title", "warning");
-      if (!code) return showToast("Enter product SKU / Barcode", "warning");
-      if (rate <= 0) return showToast("Selling rate must be greater than ₹0", "warning");
-
-      const item = { barcode: code, name, mrp, rate, gst, stock, minStock };
-      
-      const targetCode = (originalCode || code).toLowerCase();
-      const existingIdx = inventory.findIndex(p => (p.barcode || "").toString().toLowerCase() === targetCode);
-
-      if (existingIdx >= 0) {
-        inventory[existingIdx] = item;
-      } else {
-        inventory.push(item);
-      }
-
-      persistUserStorage();
-
-      if (db && navigator.onLine && currentUser && currentUser.id !== "offline-merchant") {
-        const { data: { session } } = await db.auth.getSession();
-        
-        if (session) {
-          if (originalCode && originalCode.toLowerCase() !== code.toLowerCase()) {
-            await db.from("products").delete().eq("barcode", originalCode).eq("user_id", session.user.id);
-          }
-
-          const { error } = await db.from("products").upsert({
-            user_id: session.user.id,
-            barcode: code,
-            name: name,
-            mrp: mrp,
-            rate: rate,
-            gst: gst,
-            stock: stock,
-            min_stock: minStock,
-            updated_at: new Date().toISOString()
-          }, { onConflict: "user_id,barcode" });
-
-          if (error) {
-            console.error("Cloud product sync error:", error);
-            showToast(`Cloud Sync Failed: ${error.message}`, "danger");
-            return;
-          }
-        }
-      }
-
-      resetInventoryForm();
-      renderInventoryList();
-      refreshDropdown();
-      showToast("SKU saved & synced to cloud", "success");
-    };
-
-    window.editProduct = function(barcode) {
-      const cleanCode = (barcode || "").toString().trim().toLowerCase();
-      const p = inventory.find(i => (i.barcode || "").toString().trim().toLowerCase() === cleanCode);
-      if (!p) return;
-
-      document.getElementById("inv-original-code").value = p.barcode;
-      document.getElementById("inv-name").value = p.name;
-      document.getElementById("inv-code").value = p.barcode;
-      document.getElementById("inv-mrp").value = p.mrp;
-      document.getElementById("inv-rate").value = p.rate;
-      document.getElementById("inv-gst").value = p.gst;
-      document.getElementById("inv-stock").value = p.stock;
-      document.getElementById("inv-min-stock").value = p.minStock;
-
-      document.getElementById("inv-form-title").innerText = `Edit: ${p.name}`;
-      document.getElementById("btn-save-inv").innerText = "💾 Update SKU";
-      document.getElementById("inv-name").focus();
-    };
-
-    window.deleteProduct = async function(barcode) {
-      if (!confirm(`Delete SKU ${barcode} from catalog?`)) return;
-
-      const cleanCode = (barcode || "").toString().trim().toLowerCase();
-      inventory = inventory.filter(p => (p.barcode || "").toString().trim().toLowerCase() !== cleanCode);
+      const oc = document.getElementById("inv-original-code").value.trim(), n = document.getElementById("inv-name").value.trim(), c = document.getElementById("inv-code").value.trim(), m = parseFloat(document.getElementById("inv-mrp").value)||0, r = parseFloat(document.getElementById("inv-rate").value)||0, g = parseFloat(document.getElementById("inv-gst").value)||0, s = parseInt(document.getElementById("inv-stock").value)||0, ms = parseInt(document.getElementById("inv-min-stock").value)||5;
+      if (!n || !c || r <= 0) return showToast("Invalid inputs", "warning");
+      const item = { barcode: c, name: n, mrp: m, rate: r, gst: g, stock: s, minStock: ms };
+      const idx = inventory.findIndex(p => p.barcode === (oc || c));
+      if (idx >= 0) inventory[idx] = item; else inventory.push(item);
       persistUserStorage();
 
       if (db && currentUser && currentUser.id !== "offline-merchant") {
         const { data: { session } } = await db.auth.getSession();
         if (session) {
-          await db.from("products").delete().eq("barcode", barcode).eq("user_id", session.user.id);
+          if (oc && oc !== c) await db.from("products").delete().eq("barcode", oc).eq("user_id", session.user.id);
+          await db.from("products").upsert({ user_id: session.user.id, barcode: c, name: n, mrp: m, rate: r, gst: g, stock: s, min_stock: ms, updated_at: new Date().toISOString() }, { onConflict: "user_id,barcode" });
         }
       }
+      resetInventoryForm(); renderInventoryList(); refreshDropdown(); showToast("Product Saved!", "success");
+    };
 
-      renderInventoryList();
-      refreshDropdown();
-      showToast("Product deleted from catalog", "success");
+    window.editProduct = function(bc) {
+      const p = inventory.find(i => i.barcode === bc); if (!p) return;
+      document.getElementById("inv-original-code").value = p.barcode; document.getElementById("inv-name").value = p.name; document.getElementById("inv-code").value = p.barcode; document.getElementById("inv-mrp").value = p.mrp; document.getElementById("inv-rate").value = p.rate; document.getElementById("inv-gst").value = p.gst; document.getElementById("inv-stock").value = p.stock; document.getElementById("inv-min-stock").value = p.minStock;
+      document.getElementById("inv-form-title").innerText = `Edit: ${p.name}`; document.getElementById("btn-save-inv").innerText = "💾 Update"; document.getElementById("inv-name").focus();
+    };
+
+    window.deleteProduct = async function(bc) {
+      if (!confirm(`Delete ${bc}?`)) return;
+      inventory = inventory.filter(p => p.barcode !== bc); persistUserStorage();
+      if (db && currentUser && currentUser.id !== "offline-merchant") await db.from("products").delete().eq("barcode", bc).eq("user_id", currentUser.id);
+      renderInventoryList(); refreshDropdown(); showToast("Deleted", "success");
     };
 
     function renderLedger() {
-      let revenue = 0, totalGst = 0;
-      const tbody = document.getElementById("sales-history-tbody");
-      if (!tbody) return;
-      tbody.innerHTML = "";
-
-      salesHistory.forEach(s => {
-        revenue += s.grand_total;
-        totalGst += s.total_tax;
-
-        tbody.innerHTML += `
-          <tr>
-            <td><strong>${s.invoice_no}</strong></td>
-            <td>${new Date(s.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-            <td>${s.customer_name}</td>
-            <td>${s.pay_mode || "UPI"}</td>
-            <td>₹${s.taxable.toFixed(2)}</td>
-            <td>₹${s.total_tax.toFixed(2)}</td>
-            <td><strong>₹${s.grand_total.toFixed(2)}</strong></td>
-            <td>${s.synced ? "🟢 Synced" : "⏳ Pending Outbox"}</td>
-          </tr>
-        `;
-      });
-
-      document.getElementById("kpi-revenue").innerText = revenue.toFixed(2);
-      document.getElementById("kpi-invoices").innerText = salesHistory.length;
-      document.getElementById("kpi-gst").innerText = totalGst.toFixed(2);
-      document.getElementById("kpi-outbox").innerText = outboxQueue.length;
+      const tb = document.getElementById("sales-history-tbody"); if (!tb) return;
+      let rev = 0, tax = 0;
+      tb.innerHTML = salesHistory.map(s => { rev += s.grand_total; tax += s.total_tax;
+        return `<tr><td><strong>${s.invoice_no}</strong></td><td>${new Date(s.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td>${s.customer_name}</td><td>${s.pay_mode}</td><td>₹${s.taxable.toFixed(2)}</td><td>₹${s.total_tax.toFixed(2)}</td><td><strong>₹${s.grand_total.toFixed(2)}</strong></td><td>${s.synced?'🟢':'⏳'}</td></tr>`;
+      }).join('');
+      document.getElementById("kpi-revenue").innerText = rev.toFixed(2); document.getElementById("kpi-invoices").innerText = salesHistory.length; document.getElementById("kpi-gst").innerText = tax.toFixed(2); document.getElementById("kpi-outbox").innerText = outboxQueue.length;
     }
 
-    // Comprehensive Super-Admin Metrics, Revenue Calculation, and Chart Render
+    // Super-Admin Telemetry & Charts
     window.fetchAdminMerchantData = async function() {
-      const tbody = document.getElementById("admin-merchants-tbody");
-      if (!tbody) return;
-      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center;">Refreshing merchant telemetry & financial metrics...</td></tr>`;
-
-      if (!db) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: red;">Database connection required.</td></tr>`;
-        return;
-      }
-
+      const tb = document.getElementById("admin-merchants-tbody"); if (!tb || !db) return;
+      tb.innerHTML = `<tr><td colspan="8" style="text-align:center">Refreshing telemetry...</td></tr>`;
       try {
-        const { data, error } = await db.rpc('get_admin_merchant_metrics');
-        if (error) throw error;
+        const { data, error } = await db.rpc('get_admin_merchant_metrics'); if (error) throw error;
+        let pc=0, penc=0, tc=0, ec=0, mRev=0, yRev=0, mC=0, yC=0;
 
-        if (!data || data.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center;">No merchant records registered.</td></tr>`;
-          return;
-        }
+        tb.innerHTML = data.map(m => {
+          const isP = m.operational_status.includes("PENDING"), isA = m.operational_status === "PAID ACTIVE", isT = m.operational_status === "TRIAL ACTIVE";
+          const isY = (m.current_plan||"").toLowerCase().includes("annual");
+          let bg = isA ? 'var(--success)' : isP ? 'var(--warning)' : isT ? 'var(--warning)' : 'var(--danger)';
+          
+          if (isA) { pc++; const a = parseFloat(m.plan_amount)||(isY?4999:499); if (isY){yRev+=a; yC++;}else{mRev+=a; mC++;} }
+          else if (isP) penc++; else if (isT) tc++; else ec++;
 
-        let paidCount = 0, pendingCount = 0, trialCount = 0, expiredCount = 0;
-        let monthlySubRev = 0, yearlySubRev = 0;
-        let monthlySubCount = 0, yearlySubCount = 0;
+          const dr = Math.round(Number(m.days_remaining)||0);
+          const actBtn = isP ? `<button class="btn-action" style="padding:4px 8px; font-size:10px; background:var(--warning)" onclick="openAdminActivationModal('${m.user_id}','${m.merchant_email}','${m.operational_status}','${m.submitted_utr||''}','${m.current_plan}')">Review</button>` : `<button class="btn-action" style="padding:4px 8px; font-size:10px; background:var(--secondary)" onclick="openAdminActivationModal('${m.user_id}','${m.merchant_email}','${m.operational_status}','${m.submitted_utr||''}','${m.current_plan}')">Manage</button>`;
 
-        tbody.innerHTML = "";
+          return `<tr><td><strong>${m.merchant_email}</strong></td><td>${new Date(m.signed_up_at).toLocaleDateString()}</td><td>${m.current_plan}</td><td><span style="padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold; background:${bg}; color:white">${m.operational_status}</span></td><td>${isP?'Review':dr>0?dr+'d':`<span style="color:var(--danger)">Expired</span>`}</td><td>${m.access_valid_until?new Date(m.access_valid_until).toLocaleDateString():'N/A'}</td><td>${m.total_invoices}</td><td>${actBtn}</td></tr>`;
+        }).join('');
 
-        data.forEach(m => {
-          let badgeStyle = "background: #64748b; color: white;";
-          let isPending = (m.operational_status || "").toUpperCase().includes("PENDING");
-          let isPaid = m.operational_status === "PAID ACTIVE";
-          let isTrial = m.operational_status === "TRIAL ACTIVE";
-
-          const planName = (m.current_plan || "").toLowerCase();
-          const isYearly = planName.includes("annual") || planName.includes("year") || planName.includes("365");
-
-          if (isPaid) {
-            badgeStyle = "background: var(--success); color: white;";
-            paidCount++;
-            if (isYearly) {
-              yearlySubRev += 4999;
-              yearlySubCount++;
-            } else {
-              monthlySubRev += 499;
-              monthlySubCount++;
-            }
-          } else if (isPending) {
-            badgeStyle = "background: var(--warning); color: white;";
-            pendingCount++;
-          } else if (isTrial) {
-            badgeStyle = "background: var(--warning); color: white;";
-            trialCount++;
-          } else {
-            badgeStyle = "background: var(--danger); color: white;";
-            expiredCount++;
-          }
-
-          const daysRemaining = Math.round(Number(m.days_remaining) || 0);
-          const daysText = isPending 
-            ? `<span style="color: var(--warning); font-weight: bold;">Review Required</span>`
-            : (daysRemaining > 0 
-                ? `${daysRemaining} days` 
-                : `<span style="color: var(--danger); font-weight: bold;">Expired (${Math.abs(daysRemaining)}d ago)</span>`);
-
-          const actionBtn = isPending
-            ? `<button class="btn-action" style="padding: 4px 8px; font-size: 11px; background: var(--warning);" onclick="openAdminActivationModal('${m.user_id}', '${m.merchant_email}', '${m.operational_status}', '${m.razorpay_payment_id || 'N/A'}', '${m.current_plan}')">⚡ Review & Activate</button>`
-            : `<button class="btn-action" style="padding: 4px 8px; font-size: 11px; background: var(--secondary);" onclick="openAdminActivationModal('${m.user_id}', '${m.merchant_email}', '${m.operational_status}', '${m.razorpay_payment_id || 'N/A'}', '${m.current_plan}')">👑 Manage Plan</button>`;
-
-          tbody.innerHTML += `
-            <tr>
-              <td><strong>${m.merchant_email}</strong></td>
-              <td>${new Date(m.signed_up_at).toLocaleDateString('en-IN')}</td>
-              <td>${m.current_plan}</td>
-              <td><span style="padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; ${badgeStyle}">${m.operational_status}</span></td>
-              <td>${daysText}</td>
-              <td>${m.access_valid_until ? new Date(m.access_valid_until).toLocaleDateString('en-IN') : 'N/A'}</td>
-              <td>${m.total_invoices}</td>
-              <td>${actionBtn}</td>
-            </tr>
-          `;
-        });
-
-        const totalSubRevenue = monthlySubRev + yearlySubRev;
-
-        // Populate Financial KPIs
-        document.getElementById("admin-kpi-sub-total").innerText = totalSubRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-        document.getElementById("admin-kpi-sub-monthly").innerText = monthlySubRev.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-        document.getElementById("admin-kpi-sub-yearly").innerText = yearlySubRev.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-        document.getElementById("admin-kpi-monthly-count").innerText = monthlySubCount;
-        document.getElementById("admin-kpi-yearly-count").innerText = yearlySubCount;
-
-        // Populate Merchant Status KPIs
-        document.getElementById("admin-kpi-merchants").innerText = data.length;
-        document.getElementById("admin-kpi-paid").innerText = paidCount;
-        document.getElementById("admin-kpi-pending").innerText = pendingCount;
-        document.getElementById("admin-kpi-trials").innerText = trialCount;
-        document.getElementById("admin-kpi-expired").innerText = expiredCount;
-
-        // Render / Update Charts
-        renderAdminAnalyticsCharts(monthlySubRev, yearlySubRev, paidCount, trialCount, pendingCount, expiredCount);
-
-      } catch (err) {
-        console.error("Admin fetch error:", err);
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: red;">RPC Error: ${err.message}</td></tr>`;
-      }
+        document.getElementById("admin-kpi-sub-total").innerText = (mRev+yRev).toLocaleString('en-IN'); document.getElementById("admin-kpi-sub-monthly").innerText = mRev.toLocaleString('en-IN'); document.getElementById("admin-kpi-sub-yearly").innerText = yRev.toLocaleString('en-IN'); document.getElementById("admin-kpi-monthly-count").innerText = mC; document.getElementById("admin-kpi-yearly-count").innerText = yC;
+        document.getElementById("admin-kpi-merchants").innerText = data.length; document.getElementById("admin-kpi-paid").innerText = pc; document.getElementById("admin-kpi-pending").innerText = penc; document.getElementById("admin-kpi-trials").innerText = tc; document.getElementById("admin-kpi-expired").innerText = ec;
+        
+        renderAdminAnalyticsCharts(mRev, yRev, pc, tc, penc, ec);
+      } catch (err) { tb.innerHTML = `<tr><td colspan="8" style="color:red">Error: ${err.message}</td></tr>`; }
     };
 
-    function renderAdminAnalyticsCharts(monthlyRev, yearlyRev, paid, trials, pending, expired) {
-      if (typeof Chart === "undefined") return;
-
-      // 1. Subscription Revenue Bar Chart
-      const ctxRev = document.getElementById('chart-sub-revenue')?.getContext('2d');
-      if (ctxRev) {
+    function renderAdminAnalyticsCharts(mRev, yRev, paid, trials, pending, exp) {
+      if (!window.Chart) return;
+      const ctxR = document.getElementById('chart-sub-revenue')?.getContext('2d'), ctxS = document.getElementById('chart-merchant-status')?.getContext('2d');
+      if (ctxR) {
         if (chartSubRevenue) chartSubRevenue.destroy();
-        chartSubRevenue = new Chart(ctxRev, {
-          type: 'bar',
-          data: {
-            labels: ['Monthly Plans (₹499)', 'Annual Plans (₹4,999)', 'Total Collections'],
-            datasets: [{
-              label: 'Collections (₹)',
-              data: [monthlyRev, yearlyRev, monthlyRev + yearlyRev],
-              backgroundColor: ['#2563eb', '#d9b310', '#16a34a'],
-              borderRadius: 6
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                callbacks: {
-                  label: (ctx) => ` ₹${Number(ctx.raw).toLocaleString('en-IN')}`
-                }
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                ticks: {
-                  callback: (val) => `₹${val}`
-                }
-              }
-            }
-          }
-        });
+        chartSubRevenue = new Chart(ctxR, { type: 'bar', data: { labels: ['Monthly', 'Annual', 'Total'], datasets: [{ data: [mRev, yRev, mRev+yRev], backgroundColor: ['#2563eb', '#d9b310', '#16a34a'], borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
       }
-
-      // 2. Merchant Status Doughnut Chart
-      const ctxStatus = document.getElementById('chart-merchant-status')?.getContext('2d');
-      if (ctxStatus) {
+      if (ctxS) {
         if (chartMerchantStatus) chartMerchantStatus.destroy();
-        chartMerchantStatus = new Chart(ctxStatus, {
-          type: 'doughnut',
-          data: {
-            labels: ['Paid Active', '7-Day Trial', 'Pending Review', 'Expired'],
-            datasets: [{
-              data: [paid, trials, pending, expired],
-              backgroundColor: ['#16a34a', '#d97706', '#eab308', '#dc2626'],
-              borderWidth: 2
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'right',
-                labels: { boxWidth: 12, font: { size: 11 } }
-              }
-            }
-          }
-        });
+        chartMerchantStatus = new Chart(ctxS, { type: 'doughnut', data: { labels: ['Paid', 'Trial', 'Pending', 'Expired'], datasets: [{ data: [paid, trials, pending, exp], backgroundColor: ['#16a34a', '#d97706', '#eab308', '#dc2626'], borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } } });
       }
     }
 
-    function populateSettingsUI() {
-      document.getElementById("cfg-name").value = storeConfig.name;
-      document.getElementById("cfg-address").value = storeConfig.address;
-      document.getElementById("cfg-gstin").value = storeConfig.gstin;
-      document.getElementById("cfg-upi").value = storeConfig.upi;
-    }
+    // Admin Activation Window Logic
+    window.openAdminActivationModal = function(uId, email, stat, utr, plan) {
+      document.getElementById("adm-target-userid").value = uId; document.getElementById("adm-target-email").innerText = email; document.getElementById("adm-target-status").innerText = stat||"UNKNOWN"; document.getElementById("adm-target-utr").innerText = utr||"N/A";
+      (plan||'').toLowerCase().includes('annual') ? setAdminPlanChoice('yearly', 365, 4999, 'Annual Business Plan') : setAdminPlanChoice('monthly', 30, 499, 'Pro Monthly Plan');
+      document.getElementById("admin-activation-modal").style.display = "flex";
+    };
+    window.closeAdminActivationModal = () => document.getElementById("admin-activation-modal").style.display = "none";
+    window.setAdminPlanChoice = (t, d, a, n) => { adminSelectedPlan={type:t,days:d,amount:a,planName:n}; document.getElementById("adm-input-days").value=d; document.getElementById("adm-input-amount").value=a; document.getElementById("adm-btn-monthly").style.borderColor = t==='monthly'?'var(--accent)':'#334155'; document.getElementById("adm-btn-yearly").style.borderColor = t==='yearly'?'var(--accent)':'#334155'; };
+    window.customPlanChanged = () => { const d = parseInt(document.getElementById("adm-input-days").value)||30; d===365 ? setAdminPlanChoice('yearly',365,4999,'Annual Business Plan') : d===30 ? setAdminPlanChoice('monthly',30,499,'Pro Monthly Plan') : setAdminPlanChoice('custom',d,document.getElementById("adm-input-amount").value, `Custom (${d} Days)`); };
+    window.commitAdminSubscriptionActivation = async function() {
+      const uId = document.getElementById("adm-target-userid").value, d = parseInt(document.getElementById("adm-input-days").value)||30, a = parseFloat(document.getElementById("adm-input-amount").value)||0, utr = document.getElementById("adm-target-utr").innerText;
+      if (!uId || !db) return;
+      try {
+        const { error } = await db.from("subscriptions").upsert({ user_id: uId, status: "active", plan_name: adminSelectedPlan.planName, plan_amount: a, current_period_end: new Date(Date.now() + d*86400000).toISOString(), razorpay_payment_id: utr.includes("N/A") ? `ADMIN-${Date.now()}` : utr, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+        if (error) throw error; showToast("License activated!", "success"); closeAdminActivationModal(); fetchAdminMerchantData();
+      } catch (e) { showToast(`Error: ${e.message}`, "danger"); }
+    };
 
     window.persistSettings = async function() {
-      storeConfig = {
-        name: document.getElementById("cfg-name").value.trim(),
-        address: document.getElementById("cfg-address").value.trim(),
-        gstin: document.getElementById("cfg-gstin").value.trim(),
-        upi: document.getElementById("cfg-upi").value.trim()
-      };
+      storeConfig = { name: document.getElementById("cfg-name").value.trim(), address: document.getElementById("cfg-address").value.trim(), gstin: document.getElementById("cfg-gstin").value.trim(), upi: document.getElementById("cfg-upi").value.trim() };
       persistUserStorage();
-
       if (db && currentUser && currentUser.id !== "offline-merchant") {
         const { data: { session } } = await db.auth.getSession();
-        if (session) {
-          await db.from("store_settings").upsert({
-            user_id: session.user.id,
-            name: storeConfig.name,
-            address: storeConfig.address,
-            gstin: storeConfig.gstin,
-            upi: storeConfig.upi,
-            updated_at: new Date().toISOString()
-          }, { onConflict: "user_id" });
-        }
+        if (session) await db.from("store_settings").upsert({ user_id: session.user.id, ...storeConfig, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
       }
-
-      renderCart();
-      showToast("Store configuration saved", "success");
+      renderCart(); showToast("Settings saved!", "success");
     };
 
-    document.addEventListener("DOMContentLoaded", () => {
-      loadUserLocalStorage();
-      populateSettingsUI();
-      refreshDropdown();
-      renderCart();
+    function populateSettingsUI() {
+      document.getElementById("cfg-name").value = storeConfig.name; document.getElementById("cfg-address").value = storeConfig.address; document.getElementById("cfg-gstin").value = storeConfig.gstin; document.getElementById("cfg-upi").value = storeConfig.upi;
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await restoreSession();
 
       const barcodeInput = document.getElementById("pos-barcode-input");
       if (barcodeInput) {
