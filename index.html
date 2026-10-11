@@ -760,9 +760,11 @@
         </table>
 
         <div style="border-top: 1px dashed #000; padding-top: 4px; font-size: 10px;">
-          <div style="display:flex; justify-content: space-between;"><span>Taxable Value:</span><span>₹<span id="bill-taxable">0.00</span></span></div>
-          <div style="display:flex; justify-content: space-between;"><span>Total GST:</span><span>₹<span id="bill-tax">0.00</span></span></div>
-          <div style="display:flex; justify-content: space-between; font-weight: bold; font-size: 12px; margin-top: 4px; border-top: 1px solid #000; padding-top: 4px;">
+         <div style="border-top: 1px dashed #000; padding-top: 4px; font-size: 10px;">
+  <div style="display:flex; justify-content: space-between;"><span>Taxable Value:</span><span>₹<span id="bill-taxable">0.00</span></span></div>
+  <div style="display:flex; justify-content: space-between; color: #475569;"><span>CGST:</span><span>₹<span id="bill-cgst">0.00</span></span></div>
+  <div style="display:flex; justify-content: space-between; color: #475569;"><span>SGST:</span><span>₹<span id="bill-sgst">0.00</span></span></div>
+  <div style="display:flex; justify-content: space-between; font-weight: bold; margin-top: 2px;"><span>Total Tax:</span><span>₹<span id="bill-tax">0.00</span></span></div>
             <span>NET PAYABLE:</span><span>₹<span id="bill-grand">0.00</span></span>
           </div>
         </div>
@@ -802,7 +804,10 @@
       <div class="list-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <h3 style="font-size: 14px;">Audit Ledger</h3>
-          <button class="nav-tab-btn" style="background: var(--secondary); padding: 5px 8px;" onclick="triggerManualSync()">🔄 Sync</button>
+<div style="display: flex; gap: 8px;">
+  <button class="nav-tab-btn" style="background: #10b981; border: none; padding: 5px 8px;" onclick="exportLedgerToCSV()">📥 Export CSV</button>
+  <button class="nav-tab-btn" style="background: var(--secondary); padding: 5px 8px;" onclick="triggerManualSync()">🔄 Sync</button>
+</div>
         </div>
         <div class="table-container">
           <table>
@@ -1040,8 +1045,8 @@
     const CONFIG = {
       SUPABASE_URL: "https://ccfauxnhvwafwjghouyt.supabase.co",
       SUPABASE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjZmF1eG5odndhZndqZ2hvdXl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDg0MjMsImV4cCI6MjA5ODEyNDQyM30.vBw7jwGh2YGLcIuTyuvxeYCPHYSr_Y8IhNJSxs5VXew",
-      PAYEE_UPI_ID: "yourname@okhdfcbank",
-      ADMIN_WHATSAPP: "919876543210",
+      PAYEE_UPI_ID: "Sahil-125@ptyes",
+      ADMIN_WHATSAPP: "917875134104",
       SUPER_ADMIN_EMAILS: [
         "admin@speedplus.com",
         "sahilshaikh787513@gmail.com"
@@ -1197,14 +1202,14 @@
       return `SP/${new Date().getFullYear()}/${Date.now().toString().slice(-6)}`;
     }
 
-    let storeConfig = { name: "SPEED PLUS STORE", address: "Main Market", gstin: "07AAAAA0000A1Z5", upi: "merchant@upi" };
+    let storeConfig = { name: "SPEED PLUS STORE", address: "Main Market", gstin: "01AAAAA0000A0Z0", upi: "Sahil-125@ptyes" };
     let inventory = [];
     let salesHistory = [];
     let outboxQueue = [];
 
     function loadUserLocalStorage() {
       const uid = currentUser?.id || "guest";
-      storeConfig = JSON.parse(localStorage.getItem(`pos_cfg_${uid}`)) || { name: "SPEED PLUS STORE", address: "Main Market", gstin: "07AAAAA0000A1Z5", upi: "merchant@upi" };
+      storeConfig = JSON.parse(localStorage.getItem(`pos_cfg_${uid}`)) || { name: "SPEED PLUS STORE", address: "Main Market", gstin: "07AAAAA0000A1Z5", upi: "Sahil-125@ptyes" };
       inventory = JSON.parse(localStorage.getItem(`pos_inventory_${uid}`)) || [];
       salesHistory = JSON.parse(localStorage.getItem(`pos_sales_${uid}`)) || [];
       outboxQueue = JSON.parse(localStorage.getItem(`pos_outbox_${uid}`)) || [];
@@ -1218,6 +1223,47 @@
       localStorage.setItem(`pos_outbox_${uid}`, JSON.stringify(outboxQueue));
     }
 
+    // --- NEW LOGIC: Demo Mode Auto-Reset ---
+    function checkAndResetDemoData() {
+      const isOffline = localStorage.getItem("pos_offline_active");
+      if (isOffline !== "true") return; // Only apply to offline demo mode
+
+      const demoStartTime = localStorage.getItem("pos_demo_start_time");
+      const now = Date.now();
+      const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
+
+      if (!demoStartTime) {
+        // First time entering demo mode, set the timer
+        localStorage.setItem("pos_demo_start_time", now.toString());
+      } else if (now - parseInt(demoStartTime) > ONE_HOUR) {
+        // 1 hour has passed, wipe the demo data
+        const uid = "offline-merchant";
+        localStorage.removeItem(`pos_cfg_${uid}`);
+        localStorage.removeItem(`pos_inventory_${uid}`);
+        localStorage.removeItem(`pos_sales_${uid}`);
+        localStorage.removeItem(`pos_outbox_${uid}`);
+        
+        // Reset the timer for the next hour
+        localStorage.setItem("pos_demo_start_time", now.toString());
+        
+        // Reset local memory variables
+        storeConfig = { name: "SPEED PLUS STORE", address: "Main Market", gstin: "01AAAAA0000A0Z0", upi: "Sahil-125@ptyes" };
+        inventory = [];
+        salesHistory = [];
+        outboxQueue = [];
+        cart = [];
+        
+        // Refresh the UI to reflect empty state
+        populateSettingsUI();
+        refreshDropdown();
+        renderCart();
+        renderInventoryList();
+        renderLedger();
+        
+        showToast("Demo data automatically refreshed (1 hour limit).", "warning");
+      }
+    }
+
     // Auth & Navigation
     window.toggleAuthMode = function() {
       authMode = authMode === "signin" ? "signup" : "signin";
@@ -1228,6 +1274,7 @@
 
     window.unlockOfflineDemo = function() {
       localStorage.setItem("pos_offline_active", "true");
+      localStorage.setItem("pos_demo_start_time", Date.now().toString()); // Set fresh start time
       currentUser = { id: "offline-merchant", email: "offline@store.local" };
       initSession();
     };
@@ -1280,6 +1327,7 @@
     async function restoreSession() {
       const savedOffline = localStorage.getItem("pos_offline_active");
       if (savedOffline === "true") {
+        checkAndResetDemoData(); // Check expiration on page reload
         currentUser = { id: "offline-merchant", email: "offline@store.local" };
         await initSession();
         return;
@@ -1480,7 +1528,7 @@
       if (!input || !input.value.trim()) return;
       window.lookupAndAdd(input.value.trim());
       input.value = "";
-    };
+    }
 
     window.lookupAndAdd = function(barcode) {
       const code = (barcode||"").toString().trim().toLowerCase();
@@ -1516,7 +1564,11 @@
 
       document.getElementById("txt-taxable").innerText = tax.toFixed(2); document.getElementById("txt-total-gst").innerText = gst.toFixed(2); document.getElementById("txt-grand").innerText = grand.toFixed(2);
       
-      document.getElementById("bill-store-name").innerText = storeConfig.name; document.getElementById("bill-store-address").innerText = storeConfig.address; document.getElementById("bill-gstin").innerText = storeConfig.gstin; document.getElementById("bill-invoice-no").innerText = activeInvoiceNo; document.getElementById("bill-timestamp").innerText = new Date().toLocaleString(); document.getElementById("bill-taxable").innerText = tax.toFixed(2); document.getElementById("bill-tax").innerText = gst.toFixed(2); document.getElementById("bill-grand").innerText = grand.toFixed(2);
+      document.getElementById("bill-store-name").innerText = storeConfig.name; document.getElementById("bill-store-address").innerText = storeConfig.address; document.getElementById("bill-gstin").innerText = storeConfig.gstin; document.getElementById("bill-invoice-no").innerText = activeInvoiceNo; document.getElementById("bill-timestamp").innerText = new Date().toLocaleString(); document.getElementById("bill-taxable").innerText = tax.toFixed(2); 
+document.getElementById("bill-cgst").innerText = (gst / 2).toFixed(2);
+document.getElementById("bill-sgst").innerText = (gst / 2).toFixed(2);
+document.getElementById("bill-tax").innerText = gst.toFixed(2); 
+document.getElementById("bill-grand").innerText = grand.toFixed(2);
 
       const uri = `upi://pay?pa=${storeConfig.upi}&pn=${encodeURIComponent(storeConfig.name)}&am=${grand.toFixed(2)}&cu=INR&tn=Bill-${activeInvoiceNo}`;
       if (window.QRCode && document.getElementById("bill-upi-qr")) QRCode.toCanvas(document.getElementById("bill-upi-qr"), uri, { width: 84, margin: 1 });
@@ -1640,6 +1692,47 @@
       document.getElementById("kpi-revenue").innerText = rev.toFixed(2); document.getElementById("kpi-invoices").innerText = salesHistory.length; document.getElementById("kpi-gst").innerText = tax.toFixed(2); document.getElementById("kpi-outbox").innerText = outboxQueue.length;
     }
 
+    window.exportLedgerToCSV = function() {
+  if (salesHistory.length === 0) {
+    return showToast("No sales data to export.", "warning");
+  }
+
+  // 1. Define CSV Headers (Compliant with basic GST accounting needs)
+  let csvContent = "Invoice Number,Date,Time,Customer Name,Payment Mode,Taxable Value (INR),CGST (INR),SGST (INR),Total Tax (INR),Grand Total (INR)\n";
+
+  // 2. Loop through sales and build rows
+  salesHistory.forEach(s => {
+    const d = new Date(s.created_at);
+    const dateStr = d.toLocaleDateString('en-IN');
+    const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    
+    // Split GST into CGST/SGST for local reporting
+    const cgst = (s.total_tax / 2).toFixed(2);
+    const sgst = (s.total_tax / 2).toFixed(2);
+    
+    // Escape quotes and commas in customer names so it doesn't break the CSV layout
+    const safeCustomer = `"${(s.customer_name || 'Walk-in').replace(/"/g, '""')}"`;
+
+    csvContent += `${s.invoice_no},${dateStr},${timeStr},${safeCustomer},${s.pay_mode},${s.taxable.toFixed(2)},${cgst},${sgst},${s.total_tax.toFixed(2)},${s.grand_total.toFixed(2)}\n`;
+  });
+
+  // 3. Create a downloadable Blob
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute("href", url);
+  link.setAttribute("download", `GST_Sales_Report_${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  
+  // 4. Trigger the download invisibly
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  showToast("CSV Exported Successfully!", "success");
+};
+
     // Super-Admin Telemetry & Charts
     window.fetchAdminMerchantData = async function() {
       const tb = document.getElementById("admin-merchants-tbody"); if (!tb || !db) return;
@@ -1710,9 +1803,25 @@
       renderCart(); showToast("Settings saved!", "success");
     };
 
+    function escapeHTML(str) {
+  if (!str) return "";
+  return str.toString().replace(/[&<>'"]/g, 
+    tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag])
+  );
+}
+
     function populateSettingsUI() {
       document.getElementById("cfg-name").value = storeConfig.name; document.getElementById("cfg-address").value = storeConfig.address; document.getElementById("cfg-gstin").value = storeConfig.gstin; document.getElementById("cfg-upi").value = storeConfig.upi;
     }
+
+    // Check for demo expiration every 1 minute while the app is open
+    setInterval(checkAndResetDemoData, 60000); 
 
     document.addEventListener("DOMContentLoaded", async () => {
       await restoreSession();
