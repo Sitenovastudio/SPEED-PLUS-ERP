@@ -65,7 +65,7 @@
     @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
     /* Modals */
-    #auth-overlay, #subscription-modal, #admin-activation-modal, #camera-modal, #label-print-modal {
+    #auth-overlay, #subscription-modal, #admin-activation-modal, #camera-modal, #label-print-modal, #due-collection-modal {
       position: fixed;
       inset: 0;
       z-index: 10000;
@@ -75,7 +75,7 @@
       background: radial-gradient(circle at 50% 50%, #0b3c5d 0%, #041521 100%);
       padding: 16px;
     }
-    #subscription-modal, #admin-activation-modal, #camera-modal, #label-print-modal { 
+    #subscription-modal, #admin-activation-modal, #camera-modal, #label-print-modal, #due-collection-modal { 
       display: none; 
       z-index: 10001; 
       background: rgba(4, 21, 33, 0.9); 
@@ -490,6 +490,28 @@
     </div>
   </div>
 
+  <!-- DUE COLLECTION MODAL -->
+  <div id="due-collection-modal">
+    <div class="glass-card" style="text-align: center;">
+      <h3 style="font-size: 18px; color: #fff; margin-bottom: 8px;">Collect Due Payment</h3>
+      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 16px;">Customer: <strong id="due-col-cust" style="color:var(--accent);"></strong></p>
+      
+      <div style="margin-bottom: 16px; text-align: left;">
+        <label style="display: block; font-size: 11px; font-weight: 600; color: #cbd5e1; margin-bottom: 4px;">Amount to Collect (₹)</label>
+        <input type="number" id="due-col-amount" class="input-box" style="width: 100%;" oninput="updateDueQR()">
+      </div>
+
+      <div style="text-align: center; margin-bottom: 16px; min-height: 120px;">
+        <canvas id="due-upi-qr" style="display: none; margin: 0 auto; border-radius: 8px; background: white; padding: 4px;"></canvas>
+      </div>
+      
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-action" style="flex: 2; background: var(--success);" onclick="processDueCollection()">Submit Payment</button>
+        <button class="btn-action" style="flex: 1; background: #64748b;" onclick="closeDueModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- USER UPGRADE / DIRECT UPI CHECKOUT MODAL -->
   <div id="subscription-modal">
     <div class="glass-card" style="text-align: center;">
@@ -697,12 +719,22 @@
       </div>
 
       <div style="display: grid; grid-template-columns: 1fr; gap: 6px; background: white; padding: 8px; border-radius: 4px; border: 1px solid var(--border);">
-        <input type="text" id="cust-name" class="input-box" placeholder="Customer Name (Optional)">
-        <input type="text" id="cust-phone" class="input-box" placeholder="Phone Number (WhatsApp Bill)">
+        <input type="text" id="cust-name" class="input-box" placeholder="Customer Name (Required for Due)">
+        
+        <!-- INTEGRATED LOGIC UI: Checkbox for WhatsApp -->
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <input type="text" id="cust-phone" class="input-box" placeholder="Phone Number (WhatsApp Bill)">
+          <div style="display: flex; align-items: center; gap: 6px; padding-left: 2px;">
+            <input type="checkbox" id="send-wa-receipt" checked style="cursor: pointer;">
+            <label for="send-wa-receipt" style="font-size: 10px; font-weight: bold; color: #475569; cursor: pointer;">Send receipt to WhatsApp after print</label>
+          </div>
+        </div>
+
         <select id="pos-pay-mode" class="input-box">
           <option value="UPI">UPI Digital Payment</option>
           <option value="Cash">Cash at Counter</option>
           <option value="Card">Credit/Debit Card</option>
+          <option value="Split">Split/Partial Payment</option>
         </select>
       </div>
 
@@ -728,6 +760,22 @@
         <div>Total GST: <strong>₹<span id="txt-total-gst">0.00</span></strong></div>
         <div style="grid-column: span 2; text-align: right; font-size: 14px;">
           Grand Total: <strong style="color: var(--success); font-size: 16px;">₹<span id="txt-grand">0.00</span></strong>
+        </div>
+      </div>
+      
+      <!-- SPLIT PAYMENT INPUTS -->
+      <div class="summary-grid" style="grid-template-columns: 1fr 1fr 1fr; border-top:none;">
+        <div>
+          <label style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Cash Paid (₹):</label>
+          <input type="number" id="pay-cash" class="input-box" style="padding: 6px; font-size: 12px;" placeholder="0" oninput="calcDue()">
+        </div>
+        <div>
+          <label style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Online Paid (₹):</label>
+          <input type="number" id="pay-online" class="input-box" style="padding: 6px; font-size: 12px;" placeholder="0" oninput="calcDue()">
+        </div>
+        <div style="text-align: right;">
+          <label style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Due Amount:</label><br>
+          <strong style="color: var(--danger); font-size: 16px;">₹<span id="pay-due">0.00</span></strong>
         </div>
       </div>
 
@@ -760,12 +808,17 @@
         </table>
 
         <div style="border-top: 1px dashed #000; padding-top: 4px; font-size: 10px;">
-         <div style="border-top: 1px dashed #000; padding-top: 4px; font-size: 10px;">
-  <div style="display:flex; justify-content: space-between;"><span>Taxable Value:</span><span>₹<span id="bill-taxable">0.00</span></span></div>
-  <div style="display:flex; justify-content: space-between; color: #475569;"><span>CGST:</span><span>₹<span id="bill-cgst">0.00</span></span></div>
-  <div style="display:flex; justify-content: space-between; color: #475569;"><span>SGST:</span><span>₹<span id="bill-sgst">0.00</span></span></div>
-  <div style="display:flex; justify-content: space-between; font-weight: bold; margin-top: 2px;"><span>Total Tax:</span><span>₹<span id="bill-tax">0.00</span></span></div>
-            <span>NET PAYABLE:</span><span>₹<span id="bill-grand">0.00</span></span>
+          <div style="display:flex; justify-content: space-between;"><span>Taxable Value:</span><span>₹<span id="bill-taxable">0.00</span></span></div>
+          <div style="display:flex; justify-content: space-between; color: #475569;"><span>CGST:</span><span>₹<span id="bill-cgst">0.00</span></span></div>
+          <div style="display:flex; justify-content: space-between; color: #475569;"><span>SGST:</span><span>₹<span id="bill-sgst">0.00</span></span></div>
+          <div style="display:flex; justify-content: space-between; font-weight: bold; margin-top: 2px;"><span>Total Tax:</span><span>₹<span id="bill-tax">0.00</span></span></div>
+          <div style="display:flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-top: 2px;"><span>NET PAYABLE:</span><span>₹<span id="bill-grand">0.00</span></span></div>
+          
+          <!-- PRINT SPLIT PAYMENT & DUES -->
+          <div style="border-top: 1px dashed #000; margin-top: 4px; padding-top: 4px;">
+            <div style="display:flex; justify-content: space-between; color: #475569;"><span>Cash Paid:</span><span>₹<span id="bill-cash-paid">0.00</span></span></div>
+            <div style="display:flex; justify-content: space-between; color: #475569;"><span>Online Paid:</span><span>₹<span id="bill-online-paid">0.00</span></span></div>
+            <div style="display:flex; justify-content: space-between; font-weight: bold; color: var(--danger); margin-top: 2px;"><span>Due Balance:</span><span>₹<span id="bill-due-amt">0.00</span></span></div>
           </div>
         </div>
 
@@ -804,10 +857,10 @@
       <div class="list-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <h3 style="font-size: 14px;">Audit Ledger</h3>
-<div style="display: flex; gap: 8px;">
-  <button class="nav-tab-btn" style="background: #10b981; border: none; padding: 5px 8px;" onclick="exportLedgerToCSV()">📥 Export CSV</button>
-  <button class="nav-tab-btn" style="background: var(--secondary); padding: 5px 8px;" onclick="triggerManualSync()">🔄 Sync</button>
-</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="nav-tab-btn" style="background: #10b981; border: none; padding: 5px 8px;" onclick="exportLedgerToCSV()">📥 Export CSV</button>
+            <button class="nav-tab-btn" style="background: var(--secondary); padding: 5px 8px;" onclick="triggerManualSync()">🔄 Sync</button>
+          </div>
         </div>
         <div class="table-container">
           <table>
@@ -820,10 +873,33 @@
                 <th>Taxable</th>
                 <th>GST</th>
                 <th>Total</th>
+                <th>Due</th>
                 <th>Sync Status</th>
               </tr>
             </thead>
             <tbody id="sales-history-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- CUSTOMER DUES TRACKING SECTION -->
+      <div class="list-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="font-size: 14px;">Outstanding Customer Dues</h3>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Customer Name</th>
+                <th>Phone</th>
+                <th>Total Due Amount</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="customer-dues-tbody">
+              <tr><td colspan="4" style="text-align:center; color:#888;">No outstanding dues.</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
@@ -1223,37 +1299,32 @@
       localStorage.setItem(`pos_outbox_${uid}`, JSON.stringify(outboxQueue));
     }
 
-    // --- NEW LOGIC: Demo Mode Auto-Reset ---
+    // --- Demo Mode Auto-Reset ---
     function checkAndResetDemoData() {
       const isOffline = localStorage.getItem("pos_offline_active");
-      if (isOffline !== "true") return; // Only apply to offline demo mode
+      if (isOffline !== "true") return;
 
       const demoStartTime = localStorage.getItem("pos_demo_start_time");
       const now = Date.now();
-      const ONE_HOUR = 60 * 60 * 1000; // 1 hour in milliseconds
+      const ONE_HOUR = 60 * 60 * 1000;
 
       if (!demoStartTime) {
-        // First time entering demo mode, set the timer
         localStorage.setItem("pos_demo_start_time", now.toString());
       } else if (now - parseInt(demoStartTime) > ONE_HOUR) {
-        // 1 hour has passed, wipe the demo data
         const uid = "offline-merchant";
         localStorage.removeItem(`pos_cfg_${uid}`);
         localStorage.removeItem(`pos_inventory_${uid}`);
         localStorage.removeItem(`pos_sales_${uid}`);
         localStorage.removeItem(`pos_outbox_${uid}`);
         
-        // Reset the timer for the next hour
         localStorage.setItem("pos_demo_start_time", now.toString());
         
-        // Reset local memory variables
         storeConfig = { name: "SPEED PLUS STORE", address: "Main Market", gstin: "01AAAAA0000A0Z0", upi: "Sahil-125@ptyes" };
         inventory = [];
         salesHistory = [];
         outboxQueue = [];
         cart = [];
         
-        // Refresh the UI to reflect empty state
         populateSettingsUI();
         refreshDropdown();
         renderCart();
@@ -1274,7 +1345,7 @@
 
     window.unlockOfflineDemo = function() {
       localStorage.setItem("pos_offline_active", "true");
-      localStorage.setItem("pos_demo_start_time", Date.now().toString()); // Set fresh start time
+      localStorage.setItem("pos_demo_start_time", Date.now().toString());
       currentUser = { id: "offline-merchant", email: "offline@store.local" };
       initSession();
     };
@@ -1327,7 +1398,7 @@
     async function restoreSession() {
       const savedOffline = localStorage.getItem("pos_offline_active");
       if (savedOffline === "true") {
-        checkAndResetDemoData(); // Check expiration on page reload
+        checkAndResetDemoData();
         currentUser = { id: "offline-merchant", email: "offline@store.local" };
         await initSession();
         return;
@@ -1417,7 +1488,7 @@
       document.getElementById("plan-monthly").style.borderColor = id === 'monthly' ? 'var(--accent)' : 'rgba(255,255,255,0.2)';
       document.getElementById("plan-yearly").style.borderColor = id === 'yearly' ? 'var(--accent)' : 'rgba(255,255,255,0.2)';
       renderUpgradeCheckout();
-    };
+    }
 
     function renderUpgradeCheckout() {
       document.getElementById("modal-checkout-amt").innerText = `₹${selectedPlan.amount.toFixed(2)}`;
@@ -1549,6 +1620,27 @@
       if (delta > 0 && prod && (line.qty + delta > prod.stock)) return showToast("Stock limit", "warning");
       line.qty += delta; if (line.qty <= 0) cart.splice(idx, 1); renderCart();
     };
+    
+    // Calculate dynamic due inside POS cart and regenerate QR Code
+    window.calcDue = function() {
+      const grand = parseFloat(document.getElementById("txt-grand").innerText) || 0;
+      const cash = parseFloat(document.getElementById("pay-cash").value) || 0;
+      const online = parseFloat(document.getElementById("pay-online").value) || 0;
+      const due = grand - (cash + online);
+      const displayDue = due > 0 ? due : 0;
+      
+      document.getElementById("pay-due").innerText = displayDue.toFixed(2);
+      document.getElementById("bill-cash-paid").innerText = cash.toFixed(2);
+      document.getElementById("bill-online-paid").innerText = online.toFixed(2);
+      document.getElementById("bill-due-amt").innerText = displayDue.toFixed(2);
+
+      // Regenerate QR Code: reflect Online Paid if entered, else Grand Total
+      const qrAmount = online > 0 ? online : grand;
+      const uri = `upi://pay?pa=${storeConfig.upi}&pn=${encodeURIComponent(storeConfig.name)}&am=${qrAmount.toFixed(2)}&cu=INR&tn=Bill-${activeInvoiceNo}`;
+      if (window.QRCode && document.getElementById("bill-upi-qr")) {
+        QRCode.toCanvas(document.getElementById("bill-upi-qr"), uri, { width: 84, margin: 1 });
+      }
+    };
 
     function renderCart() {
       const tbody = document.getElementById("pos-cart-tbody"); const bBody = document.getElementById("bill-receipt-items");
@@ -1565,29 +1657,117 @@
       document.getElementById("txt-taxable").innerText = tax.toFixed(2); document.getElementById("txt-total-gst").innerText = gst.toFixed(2); document.getElementById("txt-grand").innerText = grand.toFixed(2);
       
       document.getElementById("bill-store-name").innerText = storeConfig.name; document.getElementById("bill-store-address").innerText = storeConfig.address; document.getElementById("bill-gstin").innerText = storeConfig.gstin; document.getElementById("bill-invoice-no").innerText = activeInvoiceNo; document.getElementById("bill-timestamp").innerText = new Date().toLocaleString(); document.getElementById("bill-taxable").innerText = tax.toFixed(2); 
-document.getElementById("bill-cgst").innerText = (gst / 2).toFixed(2);
-document.getElementById("bill-sgst").innerText = (gst / 2).toFixed(2);
-document.getElementById("bill-tax").innerText = gst.toFixed(2); 
-document.getElementById("bill-grand").innerText = grand.toFixed(2);
-
-      const uri = `upi://pay?pa=${storeConfig.upi}&pn=${encodeURIComponent(storeConfig.name)}&am=${grand.toFixed(2)}&cu=INR&tn=Bill-${activeInvoiceNo}`;
-      if (window.QRCode && document.getElementById("bill-upi-qr")) QRCode.toCanvas(document.getElementById("bill-upi-qr"), uri, { width: 84, margin: 1 });
-      if (window.JsBarcode) JsBarcode("#bill-barcode", activeInvoiceNo, { format: "CODE128", width: 1.1, height: 20, displayValue: false });
+      document.getElementById("bill-cgst").innerText = (gst / 2).toFixed(2);
+      document.getElementById("bill-sgst").innerText = (gst / 2).toFixed(2);
+      document.getElementById("bill-tax").innerText = gst.toFixed(2); 
+      document.getElementById("bill-grand").innerText = grand.toFixed(2);
+      
+      window.calcDue();
     }
 
+    // --- LOGIC INTEGRATED HERE ---
     window.settleAndPrint = async function() {
       if (cart.length === 0) return showToast("Cart is empty!", "warning");
       if (!(await checkSubscription())) { openUpgradeModal(); return showToast("License expired/pending.", "danger"); }
 
+      const custName = document.getElementById("cust-name").value.trim() || "Walk-in";
+      const phone = document.getElementById("cust-phone").value.trim();
+      
+      // Checking the state of the UI checkbox
+      const sendWaChecked = document.getElementById("send-wa-receipt") ? document.getElementById("send-wa-receipt").checked : true;
+      
+      const cashPaid = parseFloat(document.getElementById("pay-cash").value) || 0;
+      const onlinePaid = parseFloat(document.getElementById("pay-online").value) || 0;
+      const grandTotal = parseFloat(document.getElementById("txt-grand").innerText);
+      
+      const calcDueAmt = grandTotal - (cashPaid + onlinePaid);
+      const dueAmt = calcDueAmt > 0 ? calcDueAmt : 0;
+      
+      // Enforce Customer Name if Due exists
+      if (dueAmt > 0 && custName.toLowerCase() === "walk-in") {
+          document.getElementById("cust-name").focus();
+          return showToast("Customer Name is required for pending Due amount!", "warning");
+      }
+
       cart.forEach(c => { const i = inventory.find(x => x.barcode === c.barcode); if (i) i.stock = Math.max(0, i.stock - c.qty); });
-      const rec = { invoice_no: activeInvoiceNo, customer_name: document.getElementById("cust-name").value.trim() || "Walk-in", pay_mode: document.getElementById("pos-pay-mode").value, taxable: parseFloat(document.getElementById("txt-taxable").innerText), total_tax: parseFloat(document.getElementById("txt-total-gst").innerText), grand_total: parseFloat(document.getElementById("txt-grand").innerText), items: [...cart], created_at: new Date().toISOString(), synced: false };
+      
+      const rec = { 
+        invoice_no: activeInvoiceNo, 
+        customer_name: custName, 
+        customer_phone: phone,
+        pay_mode: document.getElementById("pos-pay-mode").value, 
+        taxable: parseFloat(document.getElementById("txt-taxable").innerText), 
+        total_tax: parseFloat(document.getElementById("txt-total-gst").innerText), 
+        grand_total: grandTotal, 
+        cash_paid: cashPaid,
+        online_paid: onlinePaid,
+        due_amount: dueAmt,
+        items: [...cart], 
+        created_at: new Date().toISOString(), 
+        synced: false 
+      };
       
       salesHistory.unshift(rec); outboxQueue.push(rec); persistUserStorage();
 
-      document.body.className = "print-receipt"; window.print(); setTimeout(() => document.body.className = "", 500);
+      // Trigger the browser print mechanism
+      document.body.className = "print-receipt"; window.print(); 
+      
+      // Delay to ensure the print dialog doesn't block the WhatsApp redirect
+      setTimeout(() => { 
+        document.body.className = ""; 
 
-      cart = []; activeInvoiceNo = generateInvoiceNumber(); document.getElementById("cust-name").value = "";
-      renderCart(); renderInventoryList(); refreshDropdown(); flushOutbox();
+        // INTEGRATED WA LOGIC: Automatically fire if phone is entered & checkbox ticked
+        if (phone && sendWaChecked) {
+          let waMsg = `🧾 *TAX INVOICE - ${storeConfig.name.toUpperCase()}*\n`;
+          if (storeConfig.address) waMsg += `📍 ${storeConfig.address}\n`;
+          if (storeConfig.gstin) waMsg += `🏛️ GSTIN: ${storeConfig.gstin}\n`;
+          waMsg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+          waMsg += `📄 *Invoice No:* ${activeInvoiceNo}\n`;
+          waMsg += `📅 *Date:* ${new Date().toLocaleDateString('en-IN')} ${new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}\n`;
+          waMsg += `👤 *Customer:* ${custName}\n`;
+          waMsg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+          waMsg += `*ITEMS PURCHASED:*\n`;
+
+          cart.forEach((item, index) => {
+            const itemTotal = (item.rate * item.qty).toFixed(2);
+            waMsg += `${index + 1}. *${item.name}*\n   ${item.qty} pcs @ ₹${item.rate.toFixed(2)} = ₹${itemTotal}\n`;
+          });
+
+          waMsg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+          waMsg += `💰 *Grand Total:* ₹${grandTotal.toFixed(2)}\n`;
+          
+          if (cashPaid > 0) waMsg += `💵 Cash Paid: ₹${cashPaid.toFixed(2)}\n`;
+          if (onlinePaid > 0) waMsg += `📱 Online Paid: ₹${onlinePaid.toFixed(2)}\n`;
+
+          if (dueAmt > 0) {
+            waMsg += `⚠️ *Balance Due:* ₹${dueAmt.toFixed(2)}\n`;
+            if (storeConfig.upi) {
+              const safeName = custName.replace(/\s+/g, '');
+              const upiPayLink = `upi://pay?pa=${storeConfig.upi}&pn=${encodeURIComponent(storeConfig.name)}&am=${dueAmt.toFixed(2)}&cu=INR&tn=InvoiceDue-${safeName}`;
+              waMsg += `💳 *Pay Due Online:* ${upiPayLink}\n`;
+            }
+          } else {
+            waMsg += `✅ *Payment Status:* PAID IN FULL\n`;
+          }
+
+          waMsg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+          waMsg += `✨ *Thank you for your business!* ✨`;
+
+          const cleanPhone = phone.replace(/\D/g, '');
+          const targetPhone = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
+          
+          // Triggers after print logic completes
+          window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(waMsg)}`, '_blank');
+        }
+
+        // Reset POS fields
+        cart = []; activeInvoiceNo = generateInvoiceNumber(); 
+        document.getElementById("cust-name").value = "";
+        document.getElementById("cust-phone").value = "";
+        document.getElementById("pay-cash").value = "";
+        document.getElementById("pay-online").value = "";
+        renderCart(); renderInventoryList(); refreshDropdown(); flushOutbox();
+      }, 500);
     };
 
     // Outbox & Inventory
@@ -1683,55 +1863,170 @@ document.getElementById("bill-grand").innerText = grand.toFixed(2);
       renderInventoryList(); refreshDropdown(); showToast("Deleted", "success");
     };
 
+    // Collect Due Logic with dynamic QR Generation
+    let currentDueCustomer = "";
+    
+    window.openDueModal = function(custName) {
+      currentDueCustomer = custName;
+      document.getElementById("due-col-cust").innerText = custName;
+      document.getElementById("due-col-amount").value = "";
+      const qrCanvas = document.getElementById("due-upi-qr");
+      if (qrCanvas) qrCanvas.style.display = "none";
+      document.getElementById("due-collection-modal").style.display = "flex";
+    };
+
+    window.closeDueModal = function() {
+      document.getElementById("due-collection-modal").style.display = "none";
+      currentDueCustomer = "";
+    };
+
+    window.updateDueQR = function() {
+      const amt = parseFloat(document.getElementById("due-col-amount").value) || 0;
+      const canvas = document.getElementById("due-upi-qr");
+      if (amt > 0 && window.QRCode && canvas) {
+        const safeName = currentDueCustomer.replace(/\s+/g, '');
+        const uri = `upi://pay?pa=${storeConfig.upi}&pn=${encodeURIComponent(storeConfig.name)}&am=${amt.toFixed(2)}&cu=INR&tn=DueCollection-${safeName}`;
+        QRCode.toCanvas(canvas, uri, { width: 120, margin: 1 });
+        canvas.style.display = "inline-block";
+      } else if (canvas) {
+        canvas.style.display = "none";
+      }
+    };
+    
+    window.processDueCollection = function() {
+      const amountStr = document.getElementById("due-col-amount").value;
+      const payment = parseFloat(amountStr);
+      if(!payment || payment <= 0) return showToast("Enter a valid amount", "warning");
+      
+      let remaining = payment;
+      for (let i = salesHistory.length - 1; i >= 0; i--) {
+        let s = salesHistory[i];
+        if (s.customer_name === currentDueCustomer && s.due_amount > 0) {
+          if (remaining >= s.due_amount) {
+            remaining -= s.due_amount;
+            s.cash_paid = (s.cash_paid || 0) + s.due_amount;
+            s.due_amount = 0;
+          } else {
+            s.due_amount -= remaining;
+            s.cash_paid = (s.cash_paid || 0) + remaining;
+            remaining = 0;
+            break;
+          }
+        }
+      }
+      
+      persistUserStorage();
+      renderLedger();
+      closeDueModal();
+      showToast("Due collected successfully", "success");
+    };
+
+    // WhatsApp Due Reminder Feature
+    window.sendDueReminderWhatsApp = function(custName, dueAmount, phone) {
+      if (!phone) {
+        phone = prompt(`Enter WhatsApp phone number for ${custName}:`, "");
+        if (!phone) return showToast("Phone number required for WhatsApp reminder", "warning");
+      }
+
+      let msg = `🔔 *PAYMENT DUE REMINDER*\n`;
+      msg += `Dear *${custName}*,\n\n`;
+      msg += `Your due amount is: *₹${parseFloat(dueAmount).toFixed(2)}*\n\n`;
+
+      if (storeConfig.upi) {
+        const safeName = custName.replace(/\s+/g, '');
+        const upiPayLink = `upi://pay?pa=${storeConfig.upi}&pn=${encodeURIComponent(storeConfig.name)}&am=${parseFloat(dueAmount).toFixed(2)}&cu=INR&tn=PendingDue-${safeName}`;
+        msg += `📱 *Pay Online via UPI:*\n${upiPayLink}\n\n`;
+      }
+
+      msg += `Please clear this pending balance at your earliest convenience.\n\n`;
+      msg += `Thank you,\n*${storeConfig.name}*`;
+
+      const cleanPhone = phone.replace(/\D/g, '');
+      const targetPhone = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
+      window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+    };
+
     function renderLedger() {
-      const tb = document.getElementById("sales-history-tbody"); if (!tb) return;
+      const tb = document.getElementById("sales-history-tbody");
+      const dtb = document.getElementById("customer-dues-tbody");
+      if (!tb) return;
+      
       let rev = 0, tax = 0;
-      tb.innerHTML = salesHistory.map(s => { rev += s.grand_total; tax += s.total_tax;
-        return `<tr><td><strong>${s.invoice_no}</strong></td><td>${new Date(s.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td>${s.customer_name}</td><td>${s.pay_mode}</td><td>₹${s.taxable.toFixed(2)}</td><td>₹${s.total_tax.toFixed(2)}</td><td><strong>₹${s.grand_total.toFixed(2)}</strong></td><td>${s.synced?'🟢':'⏳'}</td></tr>`;
+      let duesData = {};
+      
+      tb.innerHTML = salesHistory.map(s => { 
+        rev += s.grand_total; tax += s.total_tax;
+        
+        if(s.due_amount > 0 && s.customer_name && s.customer_name.toLowerCase() !== "walk-in") {
+           if (!duesData[s.customer_name]) {
+             duesData[s.customer_name] = { amount: 0, phone: s.customer_phone || "" };
+           }
+           duesData[s.customer_name].amount += s.due_amount;
+           if (!duesData[s.customer_name].phone && s.customer_phone) {
+             duesData[s.customer_name].phone = s.customer_phone;
+           }
+        }
+
+        return `<tr><td><strong>${s.invoice_no}</strong></td><td>${new Date(s.created_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td>${s.customer_name}</td><td>${s.pay_mode}</td><td>₹${s.taxable.toFixed(2)}</td><td>₹${s.total_tax.toFixed(2)}</td><td><strong>₹${s.grand_total.toFixed(2)}</strong></td><td style="color:var(--danger)">₹${(s.due_amount||0).toFixed(2)}</td><td>${s.synced?'🟢':'⏳'}</td></tr>`;
       }).join('');
+      
       document.getElementById("kpi-revenue").innerText = rev.toFixed(2); document.getElementById("kpi-invoices").innerText = salesHistory.length; document.getElementById("kpi-gst").innerText = tax.toFixed(2); document.getElementById("kpi-outbox").innerText = outboxQueue.length;
+      
+      if(dtb) {
+          const custKeys = Object.keys(duesData);
+          if (custKeys.length === 0) {
+             dtb.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#888;">No outstanding dues.</td></tr>`;
+          } else {
+             dtb.innerHTML = custKeys.map(c => `
+                <tr>
+                  <td><strong>${c}</strong></td>
+                  <td>${duesData[c].phone || '<span style="color:#94a3b8;">N/A</span>'}</td>
+                  <td style="color: var(--danger); font-weight: bold;">₹${duesData[c].amount.toFixed(2)}</td>
+                  <td>
+                    <button class="nav-tab-btn" style="background: var(--secondary); display: inline-block; margin-right: 4px;" onclick="openDueModal('${c}')">Collect</button>
+                    <button class="nav-tab-btn" style="background: #25d366; display: inline-block; border-color: transparent;" onclick="sendDueReminderWhatsApp('${c}', ${duesData[c].amount}, '${duesData[c].phone || ''}')">📲 Remind</button>
+                  </td>
+                </tr>
+             `).join('');
+          }
+      }
     }
 
     window.exportLedgerToCSV = function() {
-  if (salesHistory.length === 0) {
-    return showToast("No sales data to export.", "warning");
-  }
+      if (salesHistory.length === 0) {
+        return showToast("No sales data to export.", "warning");
+      }
 
-  // 1. Define CSV Headers (Compliant with basic GST accounting needs)
-  let csvContent = "Invoice Number,Date,Time,Customer Name,Payment Mode,Taxable Value (INR),CGST (INR),SGST (INR),Total Tax (INR),Grand Total (INR)\n";
+      let csvContent = "Invoice Number,Date,Time,Customer Name,Customer Phone,Payment Mode,Taxable Value (INR),CGST (INR),SGST (INR),Total Tax (INR),Grand Total (INR),Due Amount (INR)\n";
 
-  // 2. Loop through sales and build rows
-  salesHistory.forEach(s => {
-    const d = new Date(s.created_at);
-    const dateStr = d.toLocaleDateString('en-IN');
-    const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    
-    // Split GST into CGST/SGST for local reporting
-    const cgst = (s.total_tax / 2).toFixed(2);
-    const sgst = (s.total_tax / 2).toFixed(2);
-    
-    // Escape quotes and commas in customer names so it doesn't break the CSV layout
-    const safeCustomer = `"${(s.customer_name || 'Walk-in').replace(/"/g, '""')}"`;
+      salesHistory.forEach(s => {
+        const d = new Date(s.created_at);
+        const dateStr = d.toLocaleDateString('en-IN');
+        const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        
+        const cgst = (s.total_tax / 2).toFixed(2);
+        const sgst = (s.total_tax / 2).toFixed(2);
+        
+        const safeCustomer = `"${(s.customer_name || 'Walk-in').replace(/"/g, '""')}"`;
+        const phone = s.customer_phone || "";
 
-    csvContent += `${s.invoice_no},${dateStr},${timeStr},${safeCustomer},${s.pay_mode},${s.taxable.toFixed(2)},${cgst},${sgst},${s.total_tax.toFixed(2)},${s.grand_total.toFixed(2)}\n`;
-  });
+        csvContent += `${s.invoice_no},${dateStr},${timeStr},${safeCustomer},${phone},${s.pay_mode},${s.taxable.toFixed(2)},${cgst},${sgst},${s.total_tax.toFixed(2)},${s.grand_total.toFixed(2)},${(s.due_amount||0).toFixed(2)}\n`;
+      });
 
-  // 3. Create a downloadable Blob
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  
-  link.setAttribute("href", url);
-  link.setAttribute("download", `GST_Sales_Report_${new Date().toISOString().split('T')[0]}.csv`);
-  link.style.visibility = 'hidden';
-  
-  // 4. Trigger the download invisibly
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  showToast("CSV Exported Successfully!", "success");
-};
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute("href", url);
+      link.setAttribute("download", `GST_Sales_Report_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showToast("CSV Exported Successfully!", "success");
+    };
 
     // Super-Admin Telemetry & Charts
     window.fetchAdminMerchantData = async function() {
@@ -1804,17 +2099,17 @@ document.getElementById("bill-grand").innerText = grand.toFixed(2);
     };
 
     function escapeHTML(str) {
-  if (!str) return "";
-  return str.toString().replace(/[&<>'"]/g, 
-    tag => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#39;',
-        '"': '&quot;'
-      }[tag])
-  );
-}
+      if (!str) return "";
+      return str.toString().replace(/[&<>'"]/g, 
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+          }[tag])
+      );
+    }
 
     function populateSettingsUI() {
       document.getElementById("cfg-name").value = storeConfig.name; document.getElementById("cfg-address").value = storeConfig.address; document.getElementById("cfg-gstin").value = storeConfig.gstin; document.getElementById("cfg-upi").value = storeConfig.upi;
